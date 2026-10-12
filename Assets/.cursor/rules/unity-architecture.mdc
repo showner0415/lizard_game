@@ -1,0 +1,41 @@
+---
+description: Core Unity gameplay architecture rules for this project
+globs: Script/**/*.cs
+alwaysApply: true
+---
+
+# Unity Gameplay Architecture Rules
+
+Scope: all gameplay C# under `Assets/Script/`. New and modified code follows these rules;
+legacy code keeps its existing style until it is touched.
+
+## 1. SOLID
+- **SRP** – one job per class. `Tail` owns one tail's state/visuals/timer; `TailManager` owns discovery and selection.
+- **OCP** – extend via new classes/interfaces, not edits. A new spell source implements `ITailProvider`-consuming logic; it does not edit `TailManager`.
+- **LSP** – any `ITailProvider` implementation must be swappable without the caller noticing (same reserve/confirm/release semantics).
+- **ISP** – small, focused interfaces (`ITailProvider` for reservation, `ITailConsumable` for consumption); never one fat interface.
+- **DIP** – high-level systems depend only on interfaces they consume. Concrete Unity API calls such as
+  `GetComponentsInChildren<T>` live only in the class that owns that responsibility (e.g. `TailManager`),
+  never in its callers (e.g. `SpellCaster`).
+
+## 2. Patterns
+Prefer **Component** (small composable MonoBehaviours), **Observer** (C# events, subscribe in
+`OnEnable`, unsubscribe in `OnDisable`) and **State** (explicit states with guarded transitions) for decoupled behavior.
+
+## 3. Reusable scene objects
+Never use `Instantiate`/`Destroy` for reusable or pre-existing scene objects. Toggle `enabled`/component
+state instead (e.g. a consumed tail disables its renderers/colliders; its GameObject stays active).
+
+## 4. Collections, not singletons of assumption
+Design for N items (`List<T>`, arrays), never a hardcoded single instance
+(e.g. N tails discovered under a character, not `tail1`/`tail2` fields).
+
+## 5. No magic numbers
+Tunables are `[SerializeField]` with a default, a `[Tooltip]`, and a validated range (`[Min]`/`[Range]`
+plus runtime clamping). Invalid, negative or non-finite values are clamped with a `Debug.LogWarning`.
+
+## 6. Naming and style
+- PascalCase public members; `_camelCase` private fields.
+- XML doc comments on all public types and members.
+- No non-trivial logic in `Update()`; prefer coroutines, events or timestamp checks.
+- Cache references in `Awake()`/`Start()`; no `GetComponent*` or allocations per frame.

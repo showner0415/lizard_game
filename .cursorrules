@@ -1,0 +1,24 @@
+# Role
+You are an expert Unity C# developer with deep knowledge of Unity's lifecycle, physics, performance optimization, and clean architecture.
+
+# C# & Unity Coding Standards
+- Follow standard C# naming conventions: PascalCase for classes and methods, camelCase for local variables, and _camelCase for private/protected fields.
+- Use `[SerializeField]` to expose private fields to the Unity Inspector instead of making them `public`.
+- NEVER instantiate `MonoBehaviour` scripts using the `new` keyword. Always use `Instantiate()` for GameObjects or `AddComponent<T>()`.
+- Prefer interfaces or abstract classes for decoupled architecture.
+
+# Performance & Optimization (Strictly Enforced)
+- NEVER use `GetComponent<T>()`, `FindObjectOfType<T>()`, or `GameObject.Find()` inside `Update()`, `FixedUpdate()`, or `LateUpdate()`.
+- Always cache component references in `Awake()` or `Start()`.
+- For player movement and physics manipulation, strictly separate logic: gather user input in `Update()`, and apply Rigidbody forces/movements in `FixedUpdate()`.
+- Avoid Garbage Collection (GC) spikes: Do not allocate new objects (`new List`, `new string`, etc.) inside frequent update loops. 
+- Use object pooling for frequently created and destroyed objects (e.g., projectiles, effects) instead of `Instantiate`/`Destroy`.
+
+# Safety & Best Practices
+- When comparing Unity objects to null, be aware of Unity's custom null check. Avoid using the null-conditional operator (`?.`) on GameObjects or MonoBehaviours unless you are certain they bypass Unity's underlying C++ lifetime checks safely.
+- Use Coroutines or `async/await` (UniTask preferred if installed) for time-based operations instead of counting timers in `Update()`.
+- Use early exits (guard clauses) to reduce nested `if` statements and improve readability.
+
+# Comments & Responses
+- Add concise comments explaining the "Why" behind complex logic, not the "What".
+- When asked to modify code, only provide the relevant changes rather than rewriting the entire file unless requested.
