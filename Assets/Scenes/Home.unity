@@ -2778,7 +2778,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1bcb203c363a1694e8d948e71fa82e5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InventoryController
-  defaultInventorySlots: 20
+  defaultInventorySlots: 15
   defaultStashSlots: 50
 --- !u!4 &1164331932
 Transform:
@@ -5026,6 +5026,7 @@ MonoBehaviour:
   _spellCaster: {fileID: 2107582739}
   playerWeapon: {fileID: 0}
   playerMana: {fileID: 2107582737}
+  _channelTailInterval: 1
 --- !u!114 &2107582745
 MonoBehaviour:
   m_ObjectHideFlags: 0

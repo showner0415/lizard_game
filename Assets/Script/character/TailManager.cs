@@ -141,6 +141,26 @@ public sealed class TailManager : MonoBehaviour, ITailProvider
         return false;
     }
 
+    /// <inheritdoc />
+    public int RestoreRegeneratingTails(int count)
+    {
+        if (count < 1)
+            return 0;
+
+        int restored = 0;
+        for (int i = 0; i < _tails.Count && restored < count; i++)
+        {
+            Tail tail = _tails[i];
+            if (tail == null || tail.State != TailState.Regenerating)
+                continue;
+
+            if (tail.ForceRegenerate())
+                restored++;
+        }
+
+        return restored;
+    }
+
     private void DiscoverTails()
     {
         Tail[] found = GetComponentsInChildren<Tail>(true);

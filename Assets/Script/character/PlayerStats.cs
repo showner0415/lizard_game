@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class PlayerStats : MonoBehaviour
+public class PlayerStats : MonoBehaviour, IDamageable
 {
     [Header("Stats")]
     [SerializeField] private int maxHP = 50;
@@ -29,6 +29,16 @@ public class PlayerStats : MonoBehaviour
 
         if (mana == null)
             mana = GetComponent<PlayerMana>();
+    }
+
+    /// <summary>마법 피해. 반올림한 뒤 기존 피격과 같은 사망 경로를 탄다.</summary>
+    public void TakeDamage(float damage)
+    {
+        int amount = Mathf.RoundToInt(damage);
+        if (amount <= 0)
+            return;
+
+        TakeDamage(amount);
     }
 
     public void TakeDamage(int damage)
@@ -77,7 +87,21 @@ public class PlayerStats : MonoBehaviour
         if (mana != null)
             mana.ResetMana();
 
-        SaveManager.Instance?.SaveOnDeath();
-        PlayerRoot.Instance.MoveToScene(homeSceneName);
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.SaveOnDeath();
+
+        if (PlayerRoot.Instance != null)
+            PlayerRoot.Instance.MoveToScene(homeSceneName);
+
+        Revive();
+    }
+
+    /// <summary>사망 처리 뒤에 다시 맞을 수 있게 한다. 플레이어는 씬이 바뀌어도 남아 있다.</summary>
+    public void Revive()
+    {
+        isDead = false;
+        currentHP = maxHP;
+        if (hpBarUI != null)
+            hpBarUI.SetHP(currentHP);
     }
 }

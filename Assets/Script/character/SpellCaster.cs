@@ -1,14 +1,16 @@
-using System;
+﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /*
  * TAIL-CONSUMING SPELLCASTING - SUMMARY
  *
  * Reservation lifecycle
- *   TryBeginCast()   -> ITailProvider.TryReserveTail(). Fails => the cast does not start. Nothing is visible yet.
+ *   TryBeginCast(n)  -> reserves n tails. Fails => the cast does not start. Nothing is visible yet.
  *   CompleteCast()   -> reservation.Confirm(): the tail's visuals are disabled and its regeneration timer starts.
- *                       This is the ONLY place a tail is consumed, so never on cast start or mid-cast.
+ *   TryConsumeNow(n) -> reserves n tails and confirms them immediately. Used by channeling's per-second cost.
+ *                       Charge casts still consume only in CompleteCast.
  *   CancelCast()     -> reservation.Release(): the tail is untouched and immediately available again.
  *                       Also runs when this component is disabled/destroyed mid-cast.
  *   TailManager auto-releases any reservation that is never confirmed/released (timeout safety net).
@@ -56,7 +58,7 @@ public sealed class SpellCaster : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _minTimedCastDuration = 0.05f;
 
     private ITailProvider _tailProvider;
-    private ITailReservation _reservation;
+    private readonly List<ITailReservation> _reservations = new List<ITailReservation>();
     private Coroutine _timedCastRoutine;
     private bool _isCasting;
     private float _castStartTime;
@@ -99,23 +101,80 @@ public sealed class SpellCaster : MonoBehaviour
         _tailProvider = provider;
     }
 
-    /// <summary>
-    /// Reserves a tail and starts a cast that the caller finishes with <see cref="CompleteCast"/> or <see cref="CancelCast"/>.
-    /// Returns false (cast must not start) if already casting, no provider is wired, or no tail is available.
-    /// </summary>
+    /// <summary>꼬리 1개를 예약하고 시전을 시작한다. <see cref="TryBeginCast(int)"/>.</summary>
     public bool TryBeginCast()
+    {
+        return TryBeginCast(1);
+    }
+
+    /// <summary>
+    /// 꼬리를 <paramref name="tailCount"/>개 예약하고, 호출자가 <see cref="CompleteCast"/> 또는 <see cref="CancelCast"/>로 끝내는 시전을 시작한다.
+    /// 이미 시전 중이거나, 제공자가 없거나, 꼬리가 모자라면 false. 모자라면 이번에 잡은 예약은 전부 되돌린다.
+    /// </summary>
+    public bool TryBeginCast(int tailCount)
     {
         if (_isCasting || _tailProvider == null)
             return false;
 
-        if (!_tailProvider.TryReserveTail(out ITailReservation reservation))
-            return false;
+        if (tailCount < 1)
+        {
+            Debug.LogWarning($"[SpellCaster] tail cost {tailCount}는 1로 맞춥니다.", this);
+            tailCount = 1;
+        }
 
-        _reservation = reservation;
+        for (int i = 0; i < tailCount; i++)
+        {
+            if (_tailProvider.TryReserveTail(out ITailReservation reservation) && reservation != null)
+            {
+                _reservations.Add(reservation);
+                continue;
+            }
+
+            ReleaseReservations();
+            return false;
+        }
+
         _isCasting = true;
         _castStartTime = Time.time;
         OnSpellCastStarted?.Invoke(new SpellCastEventArgs(0f, false));
         return true;
+    }
+
+    /// <summary>
+    /// 꼬리를 <paramref name="count"/>개 예약하고 바로 확정한다. 채널링이 초마다 쓰는 소모다.
+    /// 하나라도 예약에 실패하면 이번에 잡은 것은 전부 되돌리고 false.
+    /// </summary>
+    public bool TryConsumeNow(int count)
+    {
+        if (_tailProvider == null || count < 1)
+            return false;
+
+        var held = new List<ITailReservation>(count);
+        for (int i = 0; i < count; i++)
+        {
+            if (_tailProvider.TryReserveTail(out ITailReservation reservation) && reservation != null)
+            {
+                held.Add(reservation);
+                continue;
+            }
+
+            for (int j = 0; j < held.Count; j++)
+            {
+                if (held[j] != null && held[j].IsActive)
+                    held[j].Release();
+            }
+
+            return false;
+        }
+
+        bool confirmed = true;
+        for (int i = 0; i < held.Count; i++)
+        {
+            if (held[i] == null || !held[i].Confirm())
+                confirmed = false;
+        }
+
+        return confirmed;
     }
 
     /// <summary>
@@ -146,11 +205,17 @@ public sealed class SpellCaster : MonoBehaviour
         if (!_isCasting)
             return false;
 
-        ITailReservation reservation = _reservation;
+        List<ITailReservation> reservations = CopyReservations();
         float elapsed = Time.time - _castStartTime;
         EndCastState();
 
-        bool consumed = reservation != null && reservation.Confirm();
+        bool consumed = reservations.Count > 0;
+        for (int i = 0; i < reservations.Count; i++)
+        {
+            if (reservations[i] == null || !reservations[i].Confirm())
+                consumed = false;
+        }
+
         if (!consumed)
             Debug.LogWarning("[SpellCaster] Cast completed but its tail reservation could not be confirmed (expired or released).", this);
 
@@ -167,12 +232,15 @@ public sealed class SpellCaster : MonoBehaviour
         if (!_isCasting)
             return false;
 
-        ITailReservation reservation = _reservation;
+        List<ITailReservation> reservations = CopyReservations();
         float elapsed = Time.time - _castStartTime;
         EndCastState();
 
-        if (reservation != null && reservation.IsActive)
-            reservation.Release();
+        for (int i = 0; i < reservations.Count; i++)
+        {
+            if (reservations[i] != null && reservations[i].IsActive)
+                reservations[i].Release();
+        }
 
         OnSpellCastCancelled?.Invoke(new SpellCastEventArgs(elapsed, false));
         return true;
@@ -189,13 +257,29 @@ public sealed class SpellCaster : MonoBehaviour
     private void EndCastState()
     {
         _isCasting = false;
-        _reservation = null;
+        _reservations.Clear();
 
         if (_timedCastRoutine != null)
         {
             StopCoroutine(_timedCastRoutine);
             _timedCastRoutine = null;
         }
+    }
+
+    List<ITailReservation> CopyReservations()
+    {
+        return new List<ITailReservation>(_reservations);
+    }
+
+    void ReleaseReservations()
+    {
+        for (int i = 0; i < _reservations.Count; i++)
+        {
+            if (_reservations[i] != null && _reservations[i].IsActive)
+                _reservations[i].Release();
+        }
+
+        _reservations.Clear();
     }
 
     private void ResolveProvider()

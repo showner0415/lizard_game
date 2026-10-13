@@ -17,4 +17,10 @@ public interface ITailProvider
     /// the caller must then not start the cast.
     /// </summary>
     bool TryReserveTail(out ITailReservation reservation);
+
+    /// <summary>
+    /// Immediately finishes up to <paramref name="count"/> tails that are regenerating.
+    /// Returns how many actually became available.
+    /// </summary>
+    int RestoreRegeneratingTails(int count);
 }
