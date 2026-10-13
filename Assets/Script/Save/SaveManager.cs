@@ -85,7 +85,7 @@ public class SaveManager : MonoBehaviour
         SaveGame();
     }
 
-    /// <summary>사망. 던전 인벤과 장비를 버리고 창고는 남긴 뒤 저장.</summary>
+    /// <summary>사망. 던전 인벤과 장비, 커서에 든 아이템을 버리고 창고는 남긴 뒤 저장.</summary>
     public void SaveOnDeath()
     {
         InventoryController.Instance?.LoseRaidInventory();
@@ -102,6 +102,9 @@ public class SaveManager : MonoBehaviour
     void CaptureFromSystems()
     {
         Debug.Log("[SaveManager] CaptureFromSystems 시작");
+
+        // 커서는 어느 모델에도 없어서, 되돌리지 않으면 저장에서 빠진다.
+        ItemTransfer.ReturnHeld();
 
         // Controller → SaveData 직렬화
         if (InventoryController.Instance != null)

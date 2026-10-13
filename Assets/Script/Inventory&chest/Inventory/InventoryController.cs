@@ -236,9 +236,10 @@ public class InventoryController : MonoBehaviour
         inRaid = false;
     }
 
-    /// <summary>사망. 던전 인벤과 장비를 비운다. 창고는 남긴다.</summary>
+    /// <summary>사망. 커서에 든 아이템을 버리고, 던전 인벤과 장비를 비운다. 창고는 남긴다.</summary>
     public void LoseRaidInventory()
     {
+        ItemTransfer.DiscardHeld();
         Inventory?.ClearAll();
 
         if (Equipment != null)

@@ -10,6 +10,10 @@ public class PlayerRoot : MonoBehaviour
 
     public void MoveToScene(string sceneName)
     {
+        // 씬이 바뀌면 커서 UI가 사라지므로, 그 전에 아이템을 모델이나 바닥에 둔다.
+        if (UIManager.Instance != null)
+            UIManager.Instance.CloseAll();
+
         shouldMoveOnSceneLoad = true;
         SceneManager.LoadScene(sceneName);
     }

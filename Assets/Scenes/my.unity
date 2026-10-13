@@ -135,7 +135,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &23648801
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -953,7 +953,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 742f5b25349a68f4090bb5e02d4946d7, type: 2}
   - {fileID: 11400000, guid: 89ac97d34e8219b4ba8ed94a58d565a2, type: 2}
   - {fileID: 11400000, guid: fbe5508ec1430504eb274b1e8bb59021, type: 2}
-  chestType: 2
+  - {fileID: 11400000, guid: 798bfafa282db9147a5de0ea37e4947b, type: 2}
+  chestType: 3
 --- !u!65 &431913251
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2752,6 +2753,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 742f5b25349a68f4090bb5e02d4946d7, type: 2}
   - {fileID: 11400000, guid: fbe5508ec1430504eb274b1e8bb59021, type: 2}
   - {fileID: 11400000, guid: 89ac97d34e8219b4ba8ed94a58d565a2, type: 2}
+  - {fileID: 11400000, guid: 798bfafa282db9147a5de0ea37e4947b, type: 2}
   chestType: 1
 --- !u!1 &1100042522
 GameObject:
@@ -2830,20 +2832,6 @@ RectTransform:
   m_AnchoredPosition: {x: -383, y: -248}
   m_SizeDelta: {x: 677, y: 230}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1100042528
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1935613393}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 238491d44e2da39498044b0040611976, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ChestWindow
-  _panel: {fileID: 1100042522}
-  _presenter: {fileID: 0}
 --- !u!114 &1100042531
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3419,19 +3407,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1364728055}
   m_CullTransparentMesh: 1
---- !u!114 &1364728061
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1935613393}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2731daec81d86b14f8d407e33c0237c2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InventoryWindow
-  _panel: {fileID: 1364728055}
 --- !u!114 &1364728064
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4572,7 +4547,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1bcb203c363a1694e8d948e71fa82e5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InventoryController
-  defaultInventorySlots: 50
+  defaultInventorySlots: 30
   defaultStashSlots: 50
 --- !u!4 &1812862398
 Transform:
@@ -4789,8 +4764,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1935613395}
   - component: {fileID: 1935613394}
-  - component: {fileID: 1364728061}
-  - component: {fileID: 1100042528}
   m_Layer: 0
   m_Name: UIManager
   m_TagString: Untagged

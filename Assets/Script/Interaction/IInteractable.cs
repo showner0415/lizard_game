@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 플레이어가 상호작용할 수 있는 모든 오브젝트의 공통 인터페이스
-/// SearchableObject(상자)와 PickupableItem(아이템) 모두 구현
+/// 상자, 창고, 바닥 아이템이 구현한다.
 /// </summary>
 public interface IInteractable
 {

@@ -157,6 +157,21 @@ public static class ItemTransfer
         Debug.LogWarning($"[ItemTransfer] 인벤이 가득 차 '{mouse.GetItem().name} x{remain}'이 커서에 남습니다.");
     }
 
+    /// <summary>
+    /// 커서 아이템을 바닥에 둔다. 바닥에 못 둬도 커서는 비운다.
+    /// 사망처럼 인벤으로 되돌리면 안 되는 경우에 쓴다.
+    /// </summary>
+    public static void DiscardHeld()
+    {
+        MouseItemUI mouse = MouseItemUI.Instance;
+        if (mouse == null || !mouse.HasItem())
+            return;
+
+        DropHeld();
+        if (mouse.HasItem())
+            mouse.Clear();
+    }
+
     /// <summary>커서를 되돌리고, 남은 것은 바닥에 둔다.</summary>
     public static void ReturnHeldOrDrop()
     {

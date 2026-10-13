@@ -26,6 +26,7 @@ public class MouseItemUI : MonoBehaviour
 
     readonly List<RaycastResult> _raycastResults = new List<RaycastResult>();
     PointerEventData _pointerData;
+    EventSystem _pointerEventSystem;
 
     private void Awake()
     {
@@ -112,8 +113,12 @@ public class MouseItemUI : MonoBehaviour
 
     bool RaycastUI(Vector2 screenPosition)
     {
-        if (_pointerData == null)
-            _pointerData = new PointerEventData(EventSystem.current);
+        EventSystem eventSystem = EventSystem.current;
+        if (_pointerData == null || _pointerEventSystem != eventSystem)
+        {
+            _pointerEventSystem = eventSystem;
+            _pointerData = new PointerEventData(eventSystem);
+        }
 
         _pointerData.position = screenPosition;
         _raycastResults.Clear();

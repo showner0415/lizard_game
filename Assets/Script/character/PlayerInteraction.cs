@@ -3,8 +3,7 @@ using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
 /// <summary>
-/// 플레이어 상호작용 시스템 (통합)
-/// SearchableObject(상자)와 PickupableItem(아이템) 모두 처리
+/// 플레이어 상호작용. 주변의 <see cref="IInteractable"/> 중 가장 가까운 하나와 F로 상호작용한다.
 /// </summary>
 public class PlayerInteraction : MonoBehaviour
 {
@@ -78,38 +77,66 @@ public class PlayerInteraction : MonoBehaviour
     /// </summary>
     private void UpdateClosestInteractable()
     {
+        // 바닥 아이템이 옆에 있어도, 연 대상에서 벗어나면 닫는다.
+        CloseIfOutOfRange();
+        bool blockPickup = BlocksGroundPickup();
+
         // OverlapSphere로 범위 내 모든 Collider 감지
         int count = Physics.OverlapSphereNonAlloc(
             transform.position, searchRange, overlapBuffer, interactableLayer);
 
         candidates.Clear();
 
-        // IInteractable 컴포넌트 수집
         for (int i = 0; i < count; i++)
         {
-            // SearchableObject 체크
-            if (overlapBuffer[i].TryGetComponent(out SearchableObject searchable))
-            {
-                candidates.Add(searchable);
-            }
-            // PickupableItem 체크
-            else if (overlapBuffer[i].TryGetComponent(out PickupableItem pickupable))
-            {
-                candidates.Add(pickupable);
-            }
-        }
+            if (!overlapBuffer[i].TryGetComponent(out IInteractable interactable))
+                continue;
 
-        // SearchableUI가 열려있는데 주변에 아무것도 없으면 닫기
-        if (candidates.Count == 0 && UIManager.Instance != null && UIManager.Instance.IsChestOpen)
-        {
-            UIManager.Instance.CloseAll();
+            // 상자나 창고가 열려 있으면 F가 바닥 아이템을 줍지 않는다.
+            if (blockPickup && interactable is PickupableItem)
+                continue;
 
-            currentTarget = null;
-            return;
+            candidates.Add(interactable);
         }
 
         // ✅ 가장 가까운 1개만 타겟으로 설정 (충돌 방지)
         currentTarget = GetClosestInteractable();
+    }
+
+    /// <summary>상자나 창고를 연 대상의 상호작용 거리 밖이면 창을 닫는다. Tab으로 연 인벤은 대상이 없어 그대로 둔다.</summary>
+    void CloseIfOutOfRange()
+    {
+        UIManager ui = UIManager.Instance;
+        if (ui == null)
+            return;
+
+        IInteractable source = ui.OpenedBy;
+        if (source == null)
+            return;
+
+        if (source is not Object targetObject || targetObject == null)
+        {
+            ui.CloseAll();
+            return;
+        }
+
+        Transform target = source.GetTransform();
+        if (target == null)
+        {
+            ui.CloseAll();
+            return;
+        }
+
+        float range = source.InteractRange;
+        Vector3 delta = target.position - transform.position;
+        if (delta.sqrMagnitude > range * range)
+            ui.CloseAll();
+    }
+
+    static bool BlocksGroundPickup()
+    {
+        UIManager ui = UIManager.Instance;
+        return ui != null && (ui.IsChestOpen || ui.IsStashOpen);
     }
 
     /// <summary>

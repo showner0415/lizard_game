@@ -20,6 +20,12 @@ public class UIManager : MonoBehaviour
     /// <summary>상자 창이 켜져 있으면 true.</summary>
     public bool IsChestOpen => _chest != null && _chest.IsOpen;
 
+    /// <summary>창고 창이 켜져 있으면 true.</summary>
+    public bool IsStashOpen => _stash != null && _stash.IsOpen;
+
+    /// <summary>이 창을 연 상호작용 대상. Tab으로 연 인벤이면 null.</summary>
+    public IInteractable OpenedBy { get; private set; }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -89,19 +95,24 @@ public class UIManager : MonoBehaviour
             return;
         }
 
+        OpenedBy = chest;
         _inventory?.Show();
         _chest?.Show(chest);
     }
 
     /// <summary>창고가 열려 있으면 모두 닫고, 아니면 인벤과 창고를 연다.</summary>
-    public void OpenStash()
+    public void OpenStash(IInteractable stash)
     {
-        if (_stash != null && _stash.IsOpen)
+        if (stash == null)
+            return;
+
+        if (IsStashOpen)
         {
             CloseAll();
             return;
         }
 
+        OpenedBy = stash;
         _inventory?.Show();
         _stash?.Show();
     }
@@ -109,6 +120,7 @@ public class UIManager : MonoBehaviour
     /// <summary>열린 창을 숨기고, 커서를 한 번 되돌린 뒤, 창고가 열려 있었으면 저장한다.</summary>
     public void CloseAll()
     {
+        OpenedBy = null;
         bool saveStash = _stash != null && _stash.IsOpen;
         _inventory?.Hide();
         _chest?.Hide();

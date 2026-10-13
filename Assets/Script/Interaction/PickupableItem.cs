@@ -105,10 +105,7 @@ public class PickupableItem : MonoBehaviour, IInteractable
         // ✅ 예외 처리 1: 거리 체크
         float distance = Vector3.Distance(player.position, transform.position);
         if (distance > interactRange)
-        {
-            Debug.Log($"[PickupableItem] ⚠️ 너무 멀리 있음: {distance:F1}m > {interactRange}m");
             return;
-        }
 
         // ✅ 예외 처리 2: ItemData 검증
         if (itemData == null)
@@ -124,10 +121,6 @@ public class PickupableItem : MonoBehaviour, IInteractable
         }
 
         int remain = InventoryController.Instance.AddToInventory(itemData, amount);
-        int picked = amount - remain;
-
-        if (picked > 0)
-            Debug.Log($"[PickupableItem] '{itemData.name}' x{picked} 획득");
 
         if (remain <= 0)
         {
