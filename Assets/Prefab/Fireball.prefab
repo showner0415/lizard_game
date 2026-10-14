@@ -126,7 +126,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ac7d27234c435f45829a2e5e653437a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Magic1
-  lifeTime: 1.3
+  _stopLayers:
+    serializedVersion: 2
+    m_Bits: 2496
+  _explosionMask:
+    serializedVersion: 2
+    m_Bits: 2312
 --- !u!54 &3045388256942606190
 Rigidbody:
   m_ObjectHideFlags: 0
