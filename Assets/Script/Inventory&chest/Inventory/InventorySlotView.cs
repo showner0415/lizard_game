@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// Renders one inventory cell. No stacking, no Model writes.
 /// Does not implement IScrollHandler — wheel bubbles to the parent ScrollRect.
 /// </summary>
-public sealed class InventorySlotView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public sealed class InventorySlotView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IItemTooltipSource
 {
     [SerializeField] private Image _iconImage;
     [SerializeField] private TMPro.TextMeshProUGUI _countText;
@@ -28,6 +28,20 @@ public sealed class InventorySlotView : MonoBehaviour, IPointerClickHandler, IPo
     Image _frame;
     Color _restColor = Color.white;
     Coroutine _flashRoutine;
+    InventoryModel _model;
+
+    /// <summary>이 칸이 지금 모델에서 읽고 있는 아이템. 비었으면 null.</summary>
+    public ItemData TooltipItem
+    {
+        get
+        {
+            if (_model == null || !IsBound)
+                return null;
+
+            ItemStack stack = _model.Peek(SlotIndex);
+            return stack != null && stack.HasItem ? stack.item : null;
+        }
+    }
 
     /// <summary>Left-click (and other buttons — Presenter filters).</summary>
     public event Action<InventorySlotView, PointerEventData> Clicked;
@@ -66,7 +80,14 @@ public sealed class InventorySlotView : MonoBehaviour, IPointerClickHandler, IPo
     /// <summary>Presenter assigns a stable index when the view is created or reused.</summary>
     public void BindIndex(int index)
     {
+        BindIndex(index, _model);
+    }
+
+    /// <summary>칸 번호와, 아이템을 물어볼 모델을 같이 붙인다.</summary>
+    public void BindIndex(int index, InventoryModel model)
+    {
         SlotIndex = index;
+        _model = model;
         IsBound = true;
         name = $"InventorySlot_{index:D3}";
     }
@@ -115,12 +136,19 @@ public sealed class InventorySlotView : MonoBehaviour, IPointerClickHandler, IPo
         if (!IsBound)
             return;
         PointerEntered?.Invoke(this);
+        ItemTooltip.SetHover(this);
     }
 
     /// <inheritdoc />
     public void OnPointerExit(PointerEventData eventData)
     {
         PointerExited?.Invoke(this);
+        ItemTooltip.ClearHover(this);
+    }
+
+    void OnDisable()
+    {
+        ItemTooltip.ClearHover(this);
     }
 
     IEnumerator FlashRoutine()

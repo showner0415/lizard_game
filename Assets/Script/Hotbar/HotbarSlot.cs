@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// 핫바 슬롯. 마법책을 받아 등록한다. 시전할 마법은 <see cref="Magic"/>이다.
 /// </summary>
-public class HotbarSlot : MonoBehaviour, IPointerClickHandler
+public class HotbarSlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IItemTooltipSource
 {
     public Image backgroundImage;
     public Image iconImage;
@@ -25,6 +25,10 @@ public class HotbarSlot : MonoBehaviour, IPointerClickHandler
 
     /// <summary>시전할 마법. 마법서가 없거나 연결이 없으면 null.</summary>
     public MagicData Magic => book != null ? book.magic : null;
+
+    /// <summary>이 칸에 지금 등록된 마법서. 인벤이 닫혀 있으면 null.</summary>
+    public ItemData TooltipItem =>
+        UIManager.Instance != null && UIManager.Instance.IsAnyWindowOpen ? book : null;
 
     /// <summary>마법서를 올리거나 칸을 비운다. 아이콘은 마법서에서 가져온다.</summary>
     public void SetBook(MagicBookItemData newBook)
@@ -113,6 +117,23 @@ public class HotbarSlot : MonoBehaviour, IPointerClickHandler
         }
 
         SetBook(bookToPlace);
+    }
+
+    /// <inheritdoc />
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        ItemTooltip.SetHover(this);
+    }
+
+    /// <inheritdoc />
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        ItemTooltip.ClearHover(this);
+    }
+
+    void OnDisable()
+    {
+        ItemTooltip.ClearHover(this);
     }
 
     IEnumerator FlashRoutine()

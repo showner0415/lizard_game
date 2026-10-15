@@ -127,7 +127,7 @@ public sealed class EquipmentPresenter : MonoBehaviour
                 _views[i] = Instantiate(_slotPrefab, _content);
 
             EquipmentSlotType slot = (EquipmentSlotType)i;
-            _views[i].Bind(slot, LabelFor(slot));
+            _views[i].Bind(slot, LabelFor(slot), _model);
             _views[i].Clicked += HandleSlotClicked;
             _views[i].PointerEntered += HandlePointerEntered;
             _views[i].PointerExited += HandlePointerExited;

@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>장비칸 하나. 아이콘과 종류 글씨만 그린다. 모델 쓰기는 Presenter가 한다.</summary>
-public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IItemTooltipSource
 {
     [SerializeField] private Image _frameImage;
     [SerializeField] private Image _iconImage;
@@ -31,6 +31,10 @@ public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPo
 
     private Color _restColor = Color.white;
     private Coroutine _flashRoutine;
+    EquipmentModel _model;
+
+    /// <summary>이 칸이 지금 장비 모델에서 읽고 있는 아이템. 비었으면 null.</summary>
+    public ItemData TooltipItem => _model != null && IsBound ? _model.Get(SlotType) : null;
 
     private void Awake()
     {
@@ -41,7 +45,14 @@ public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPo
     /// <summary>종류와 위에 붙는 글씨를 정한다.</summary>
     public void Bind(EquipmentSlotType slotType, string label)
     {
+        Bind(slotType, label, _model);
+    }
+
+    /// <summary>종류 글씨와, 아이템을 물어볼 장비 모델을 붙인다.</summary>
+    public void Bind(EquipmentSlotType slotType, string label, EquipmentModel model)
+    {
         SlotType = slotType;
+        _model = model;
         IsBound = true;
         name = $"EquipmentSlot_{slotType}";
         if (_label != null)
@@ -84,12 +95,19 @@ public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPo
         if (!IsBound)
             return;
         PointerEntered?.Invoke(this);
+        ItemTooltip.SetHover(this);
     }
 
     /// <inheritdoc />
     public void OnPointerExit(PointerEventData eventData)
     {
         PointerExited?.Invoke(this);
+        ItemTooltip.ClearHover(this);
+    }
+
+    void OnDisable()
+    {
+        ItemTooltip.ClearHover(this);
     }
 
     private IEnumerator FlashRoutine()

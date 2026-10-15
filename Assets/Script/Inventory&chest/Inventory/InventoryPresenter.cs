@@ -161,7 +161,7 @@ public sealed class InventoryPresenter : MonoBehaviour
         {
             InventorySlotView view = Instantiate(_slotPrefab, _content);
             int index = _views.Count;
-            view.BindIndex(index);
+            view.BindIndex(index, _model);
             _views.Add(view);
         }
 
@@ -171,7 +171,7 @@ public sealed class InventoryPresenter : MonoBehaviour
             _views[i].gameObject.SetActive(inRange);
             if (inRange)
             {
-                _views[i].BindIndex(i);
+                _views[i].BindIndex(i, _model);
                 _views[i].Clicked -= HandleSlotClicked;
                 _views[i].PointerEntered -= HandlePointerEntered;
                 _views[i].PointerExited -= HandlePointerExited;

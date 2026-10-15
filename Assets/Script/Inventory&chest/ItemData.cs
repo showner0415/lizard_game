@@ -18,6 +18,19 @@ public abstract class ItemData : ScriptableObject
     /// <summary>한 칸에 쌓을 수 있는 최대 수량. 1이면 겹치지 않는다.</summary>
     [Min(1)] public int maxStack = 1;
 
+    [Tooltip("툴팁에 크게 표시할 이름. 비우면 에셋 파일 이름을 쓴다.")]
+    [SerializeField] string displayName;
+
+    [TextArea(2, 6)]
+    [Tooltip("툴팁에 이름 아래 표시할 설명. 비우면 이름만 나온다.")]
+    [SerializeField] string description;
+
+    /// <summary>툴팁에 크게 표시할 이름. 비어 있으면 에셋 파일 이름.</summary>
+    public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
+
+    /// <summary>툴팁 설명. 없으면 빈 문자열.</summary>
+    public string Description => description ?? string.Empty;
+
     /// <summary>최대 수량이 2 이상이면 스택할 수 있다.</summary>
     public bool Stackable => maxStack > 1;
 

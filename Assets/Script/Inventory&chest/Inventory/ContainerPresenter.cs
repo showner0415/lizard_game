@@ -213,7 +213,7 @@ public sealed class ContainerPresenter : MonoBehaviour
         while (_views.Count < capacity)
         {
             InventorySlotView view = Instantiate(_slotPrefab, _content);
-            view.BindIndex(_views.Count);
+            view.BindIndex(_views.Count, _model);
             _views.Add(view);
         }
 
@@ -224,7 +224,7 @@ public sealed class ContainerPresenter : MonoBehaviour
             if (!inRange)
                 continue;
 
-            _views[i].BindIndex(i);
+            _views[i].BindIndex(i, _model);
             _views[i].Clicked -= HandleSlotClicked;
             _views[i].PointerEntered -= HandlePointerEntered;
             _views[i].PointerExited -= HandlePointerExited;
