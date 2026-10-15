@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: flyCatch
   m_EditorClassIdentifier: Assembly-CSharp::MagicBookItemData
   itemNum: 7
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 750b40a9132cb9a40a220e988a088bec, type: 3}
   rarity: 0
   maxStack: 1
-  worldPrefab: {fileID: 0}
+  worldPrefab: {fileID: 5734659989120178979, guid: a178e4940382d2e46ae38e21f879960d, type: 3}
   magic: {fileID: 11400000, guid: 6fe91765001a08447806b3139088e007, type: 2}
