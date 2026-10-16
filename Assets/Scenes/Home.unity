@@ -313,25 +313,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 732eb86f76f2daa43ba2508891280265, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerRoot
---- !u!114 &881100220033445577
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 139830630}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4e8a1b27d6f4093a5c8e1d04b7a6921, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ItemTooltip
-  _panel: {fileID: 0}
-  _nameText: {fileID: 0}
-  _descriptionText: {fileID: 0}
-  _layoutElement: {fileID: 0}
-  _minWidth: 120
-  _maxWidth: 320
-  _cursorOffset: {x: 0, y: 0}
 --- !u!4 &139830632
 Transform:
   m_ObjectHideFlags: 0
@@ -4058,17 +4039,17 @@ MonoBehaviour:
   m_MoveRepeatDelay: 0.5
   m_MoveRepeatRate: 0.1
   m_XRTrackingOrigin: {fileID: 0}
-  m_ActionsAsset: {fileID: -944628639613478452, guid: 3ab68edbbfcc59543b422c4e1dab2c1e, type: 3}
-  m_PointAction: {fileID: 0}
-  m_MoveAction: {fileID: 0}
-  m_SubmitAction: {fileID: 0}
-  m_CancelAction: {fileID: 0}
-  m_LeftClickAction: {fileID: 0}
-  m_MiddleClickAction: {fileID: 0}
-  m_RightClickAction: {fileID: 0}
-  m_ScrollWheelAction: {fileID: 0}
-  m_TrackedDevicePositionAction: {fileID: 0}
-  m_TrackedDeviceOrientationAction: {fileID: 0}
+  m_ActionsAsset: {fileID: -944628639613478452, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_PointAction: {fileID: -1654692200621890270, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MoveAction: {fileID: -8784545083839296357, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_SubmitAction: {fileID: 392368643174621059, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_CancelAction: {fileID: 7727032971491509709, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_LeftClickAction: {fileID: 3001919216989983466, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MiddleClickAction: {fileID: -2185481485913320682, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_RightClickAction: {fileID: -4090225696740746782, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_ScrollWheelAction: {fileID: 6240969308177333660, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDevicePositionAction: {fileID: 6564999863303420839, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDeviceOrientationAction: {fileID: 7970375526676320489, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
   m_DeselectOnBackgroundClick: 1
   m_PointerBehavior: 0
   m_CursorLockBehavior: 0
@@ -4894,19 +4875,7 @@ MonoBehaviour:
     m_ActionId: 723db285-9f94-4ced-a1f0-abdbcbcbac9b
     m_ActionName: 'Player/Inventory[/Keyboard/tab]'
   - m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2107582742}
-        m_TargetAssemblyTypeName: PlayerInteraction, Assembly-CSharp
-        m_MethodName: OnInteract
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
     m_ActionId: fb20156f-c247-486b-9891-51463ebab06b
     m_ActionName: 'Player/Interact[/Keyboard/f]'
   - m_PersistentCalls:
@@ -5115,7 +5084,6 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   raycaster: {fileID: 0}
-  debugMove: 1
 --- !u!136 &2107582747
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -5284,6 +5252,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f65882bf55e3a354987394730f3f2ed0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UIManager
+--- !u!114 &881100220033445577
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 139830630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4e8a1b27d6f4093a5c8e1d04b7a6921, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ItemTooltip
+  _panel: {fileID: 0}
+  _nameText: {fileID: 0}
+  _descriptionText: {fileID: 0}
+  _layoutElement: {fileID: 0}
+  _minWidth: 120
+  _maxWidth: 320
+  _cursorOffset: {x: 0, y: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

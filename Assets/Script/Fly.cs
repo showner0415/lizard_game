@@ -47,6 +47,12 @@ public sealed class Fly : MonoBehaviour, IPullable
     [SerializeField, Min(0.05f), Tooltip("플레이어와 닿았다고 볼 세계 반경.")]
     float _collectRadius = 0.45f;
 
+    /// <summary>태어난 자리 주변에서 배회하는 반경.</summary>
+    public float WanderRadius => _wanderRadius < MinRadius ? MinRadius : _wanderRadius;
+
+    /// <summary>도망이 배회 반경 밖으로 나갈 수 있는 배수.</summary>
+    public float FleeLeashMultiplier => _fleeLeashMultiplier < 1f ? 1f : _fleeLeashMultiplier;
+
     Rigidbody _body;
     Vector3 _home;
     Vector3 _wanderTarget;

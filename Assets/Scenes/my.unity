@@ -1426,6 +1426,67 @@ MonoBehaviour:
   _content: {fileID: 1709267528}
   _slotPrefab: {fileID: 358085208816518705, guid: 566eb17d1a7a05d4cbf654b05d532af8, type: 3}
   _scrollSensitivity: 30
+--- !u!1 &1448667888
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1448667890}
+  - component: {fileID: 1448667889}
+  m_Layer: 0
+  m_Name: FlySpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1448667889
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1448667888}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ed722a7b461d01499ab1e4eff1cc025, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlySpawner
+  _flyPrefab: {fileID: 8123456789012345678, guid: 073c0ba3a791ba2478ab14ed06ad344d, type: 3}
+  _count: 5
+  _radius: 8
+  _hoverHeight: 1.2
+  _groundMask:
+    serializedVersion: 2
+    m_Bits: 64
+  _blockMask:
+    serializedVersion: 2
+    m_Bits: 0
+  _minPlayerDistance: 3
+  _respawn: 1
+  _respawnDelay: 1
+  _maxAttempts: 5
+  _blockProbeRadius: 0.25
+  _groundProbeUp: 8
+  _groundProbeDepth: 30
+--- !u!4 &1448667890
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1448667888}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.21409, y: -0, z: -11.1737}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1572172577
 GameObject:
   m_ObjectHideFlags: 0
@@ -1873,3 +1934,4 @@ SceneRoots:
   - {fileID: 68616525}
   - {fileID: 526884877}
   - {fileID: 144510380}
+  - {fileID: 1448667890}
