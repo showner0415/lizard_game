@@ -75,6 +75,18 @@ public sealed class SpellCaster : MonoBehaviour
     /// <summary>True between a successful begin and its complete/cancel.</summary>
     public bool IsCasting => _isCasting;
 
+    /// <summary>Awake에서 찾은 꼬리 제공자. 아직 없으면 그 시점에 한 번 더 찾는다.</summary>
+    public ITailProvider TailProvider
+    {
+        get
+        {
+            if (_tailProvider == null)
+                ResolveProvider();
+
+            return _tailProvider;
+        }
+    }
+
     private void Awake()
     {
         ResolveProvider();
@@ -113,14 +125,25 @@ public sealed class SpellCaster : MonoBehaviour
     /// </summary>
     public bool TryBeginCast(int tailCount)
     {
-        if (_isCasting || _tailProvider == null)
+        if (_isCasting)
             return false;
 
-        if (tailCount < 1)
+        if (tailCount < 0)
         {
-            Debug.LogWarning($"[SpellCaster] tail cost {tailCount}는 1로 맞춥니다.", this);
-            tailCount = 1;
+            Debug.LogWarning($"[SpellCaster] tail cost {tailCount}는 0으로 맞춥니다.", this);
+            tailCount = 0;
         }
+
+        if (tailCount == 0)
+        {
+            _isCasting = true;
+            _castStartTime = Time.time;
+            OnSpellCastStarted?.Invoke(new SpellCastEventArgs(0f, false));
+            return true;
+        }
+
+        if (_tailProvider == null)
+            return false;
 
         for (int i = 0; i < tailCount; i++)
         {
@@ -209,12 +232,15 @@ public sealed class SpellCaster : MonoBehaviour
         float elapsed = Time.time - _castStartTime;
         EndCastState();
 
-        bool consumed = reservations.Count > 0;
+        bool consumed = true;
         for (int i = 0; i < reservations.Count; i++)
         {
             if (reservations[i] == null || !reservations[i].Confirm())
                 consumed = false;
         }
+
+        if (reservations.Count == 0)
+            consumed = true;
 
         if (!consumed)
             Debug.LogWarning("[SpellCaster] Cast completed but its tail reservation could not be confirmed (expired or released).", this);

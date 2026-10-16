@@ -1,7 +1,7 @@
+using System;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
-public class PlayerStats : MonoBehaviour, IDamageable
+public class PlayerStats : MonoBehaviour, IDamageable, IHomeRestorable
 {
     [Header("Stats")]
     [SerializeField] private int maxHP = 50;
@@ -10,15 +10,14 @@ public class PlayerStats : MonoBehaviour, IDamageable
     [Header("UI")]
     [SerializeField] private PlayerHPBarUI hpBarUI;
 
-    [Header("Mana")]
-    [Tooltip("사망 시 HP와 함께 리셋할 마나. 비우면 같은 오브젝트에서 찾음")]
-    [SerializeField] private PlayerMana mana;
-
     [Header("Death")]
     [SerializeField] private string homeSceneName = "Home";
 
     private int currentHP;
     private bool isDead = false;
+
+    /// <summary>체력이 바뀔 때 현재 체력과 함께 발생한다.</summary>
+    public event Action<int> OnHealthChanged;
 
     private void Awake()
     {
@@ -26,9 +25,6 @@ public class PlayerStats : MonoBehaviour, IDamageable
 
         if (hpBarUI != null)
             hpBarUI.Init(maxHP);
-
-        if (mana == null)
-            mana = GetComponent<PlayerMana>();
     }
 
     /// <summary>마법 피해. 반올림한 뒤 기존 피격과 같은 사망 경로를 탄다.</summary>
@@ -80,28 +76,20 @@ public class PlayerStats : MonoBehaviour, IDamageable
         isDead = true;
         Debug.Log("플레이어 사망 → 던전 인벤 소실 후 Home 이동");
 
-        currentHP = maxHP;
-        if (hpBarUI != null)
-            hpBarUI.SetHP(currentHP);
-
-        if (mana != null)
-            mana.ResetMana();
-
         if (SaveManager.Instance != null)
             SaveManager.Instance.SaveOnDeath();
 
         if (PlayerRoot.Instance != null)
             PlayerRoot.Instance.MoveToScene(homeSceneName);
-
-        Revive();
     }
 
-    /// <summary>사망 처리 뒤에 다시 맞을 수 있게 한다. 플레이어는 씬이 바뀌어도 남아 있다.</summary>
-    public void Revive()
+    /// <inheritdoc />
+    public void RestoreForHome()
     {
         isDead = false;
         currentHP = maxHP;
         if (hpBarUI != null)
             hpBarUI.SetHP(currentHP);
+        OnHealthChanged?.Invoke(currentHP);
     }
 }

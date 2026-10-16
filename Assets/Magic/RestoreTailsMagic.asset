@@ -9,11 +9,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b1a8253f6b2d4c0e3a4f5b6c7d8e9f0a, type: 3}
-  m_Name: tailRecovery
-  m_EditorClassIdentifier: Assembly-CSharp::HealMagicData
+  m_Script: {fileID: 11500000, guid: 06e4f0669c33658439e77c10c1a01e84, type: 3}
+  m_Name: RestoreTailsMagic
+  m_EditorClassIdentifier: Assembly-CSharp::RestoreTailsMagicData
   isDarkMagic: 0
-  castingTime: 2
-  manaCost: 0
-  healAmount: 0
-  effectPrefab: {fileID: 0}
+  castMode: 0
+  castingTime: 0.3
+  manaCost: 10
+  tailCost: 0
+  selfDamageScale: 0
+  _restoreCount: 1

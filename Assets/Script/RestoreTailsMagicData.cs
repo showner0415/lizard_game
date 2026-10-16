@@ -10,6 +10,9 @@ public class RestoreTailsMagicData : MagicData
     /// <summary>되돌릴 꼬리 수. 1 이상.</summary>
     public int RestoreCount => _restoreCount < 1 ? 1 : _restoreCount;
 
+    /// <inheritdoc />
+    public override bool NeedsTargetPoint => false;
+
     protected override void OnValidate()
     {
         base.OnValidate();
@@ -21,12 +24,23 @@ public class RestoreTailsMagicData : MagicData
     }
 
     /// <inheritdoc />
+    public override bool CanCast(GameObject caster)
+    {
+        ITailProvider provider = FindProvider(caster);
+        if (provider != null && provider.RegeneratingTailCount > 0)
+            return true;
+
+        Debug.Log("[RestoreTailsMagicData] 재생 중인 꼬리가 없어 시전하지 않습니다.");
+        return false;
+    }
+
+    /// <inheritdoc />
     public override void Cast(GameObject caster, Vector3 targetPos)
     {
         if (caster == null)
             return;
 
-        ITailProvider provider = caster.GetComponentInParent<ITailProvider>();
+        ITailProvider provider = FindProvider(caster);
         if (provider == null)
         {
             Debug.LogWarning($"[RestoreTailsMagicData] '{name}' 시전자에게 꼬리가 없습니다.", caster);
@@ -36,5 +50,17 @@ public class RestoreTailsMagicData : MagicData
         int restored = provider.RestoreRegeneratingTails(RestoreCount);
         if (restored == 0)
             Debug.Log("[RestoreTailsMagicData] 되돌릴 재생 중인 꼬리가 없습니다.");
+    }
+
+    static ITailProvider FindProvider(GameObject caster)
+    {
+        if (caster == null)
+            return null;
+
+        SpellCaster spellCaster = caster.GetComponentInParent<SpellCaster>();
+        if (spellCaster != null)
+            return spellCaster.TailProvider;
+
+        return caster.GetComponentInParent<ITailProvider>();
     }
 }

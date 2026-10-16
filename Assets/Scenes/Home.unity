@@ -294,6 +294,7 @@ GameObject:
   - component: {fileID: 139830632}
   - component: {fileID: 139830631}
   - component: {fileID: 881100220033445577}
+  - component: {fileID: 881100220033445578}
   m_Layer: 0
   m_Name: PlayerRoot
   m_TagString: Untagged
@@ -1108,6 +1109,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 448037444}
+  - component: {fileID: 448037445}
   m_Layer: 0
   m_Name: spawn
   m_TagString: PlayerSpawn
@@ -1130,6 +1132,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &448037445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 448037443}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2c3d4e5f6a74890b1c2d3e4f5061729, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HomeBase
 --- !u!1 &457036118
 GameObject:
   m_ObjectHideFlags: 0
@@ -5030,7 +5044,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerStats
   maxHP: 50
   hpBarUI: {fileID: 727940070}
-  mana: {fileID: 2107582737}
   homeSceneName: Home
 --- !u!114 &2107582746
 MonoBehaviour:
@@ -5271,6 +5284,18 @@ MonoBehaviour:
   _minWidth: 120
   _maxWidth: 320
   _cursorOffset: {x: 0, y: 0}
+--- !u!114 &881100220033445578
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 139830630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f64789a0b1c2d3e4f50618, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerRecovery
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

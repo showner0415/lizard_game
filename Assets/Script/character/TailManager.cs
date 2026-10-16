@@ -19,7 +19,7 @@ using UnityEngine;
 /// </para>
 /// Expected: exactly one <see cref="TailManager"/> per character (placed on the character root).
 /// </summary>
-public sealed class TailManager : MonoBehaviour, ITailProvider
+public sealed class TailManager : MonoBehaviour, ITailProvider, IHomeRestorable
 {
     private const float MinReservationTimeout = 0.5f;
 
@@ -47,6 +47,18 @@ public sealed class TailManager : MonoBehaviour, ITailProvider
             int count = 0;
             for (int i = 0; i < _tails.Count; i++)
                 if (_tails[i] != null && _tails[i].IsAvailable) count++;
+            return count;
+        }
+    }
+
+    /// <inheritdoc />
+    public int RegeneratingTailCount
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _tails.Count; i++)
+                if (_tails[i] != null && _tails[i].State == TailState.Regenerating) count++;
             return count;
         }
     }
@@ -139,6 +151,26 @@ public sealed class TailManager : MonoBehaviour, ITailProvider
         }
 
         return false;
+    }
+
+    /// <inheritdoc />
+    public void RestoreForHome()
+    {
+        var pending = new List<TailReservation>(_activeReservations);
+        for (int i = 0; i < pending.Count; i++)
+        {
+            if (pending[i] != null && pending[i].IsActive)
+                pending[i].Release();
+        }
+
+        for (int i = 0; i < _tails.Count; i++)
+        {
+            Tail tail = _tails[i];
+            if (tail != null && tail.State == TailState.Regenerating)
+                tail.ForceRegenerate();
+        }
+
+        AvailabilityChanged?.Invoke();
     }
 
     /// <inheritdoc />

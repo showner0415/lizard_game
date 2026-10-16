@@ -351,7 +351,7 @@ GameObject:
   - component: {fileID: 1080468718803662118}
   - component: {fileID: 3924042820957365553}
   m_Layer: 9
-  m_Name: magic_fireball
+  m_Name: book
   m_TagString: Item
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

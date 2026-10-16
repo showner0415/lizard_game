@@ -6,7 +6,7 @@ using UnityEngine;
 /// 마나 감소는 <see cref="TrySpendMana"/>로만, 회복은 <see cref="ResetMana"/>(사망/리셋)로만 일어난다.
 /// 결제 시점: <see cref="TrySpendMana"/>가 true를 반환한 순간 확정되며 환불 경로는 없다.
 /// </summary>
-public class PlayerMana : MonoBehaviour
+public class PlayerMana : MonoBehaviour, IHomeRestorable
 {
     [Header("Mana")]
     [Tooltip("최대 마나. 0보다 커야 한다.")]
@@ -66,6 +66,12 @@ public class PlayerMana : MonoBehaviour
     {
         currentMana = maxMana;
         RaiseManaChanged();
+    }
+
+    /// <inheritdoc />
+    public void RestoreForHome()
+    {
+        ResetMana();
     }
 
     private void ValidateMaxMana()

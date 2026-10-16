@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class PlayerAttack : MonoBehaviour
+public class PlayerAttack : MonoBehaviour, IHomeRestorable
 {
     [Header("Magic")]
     public MagicData currentMagic;
@@ -25,6 +25,7 @@ public class PlayerAttack : MonoBehaviour
     float _channelTailInterval = 1f;
 
     bool _isCharging;
+    bool _chargeReservedTail;
     float _chargeStartTime;
     ChannelEffect _channelEffect;
     float _channelTailTimer;
@@ -121,15 +122,17 @@ public class PlayerAttack : MonoBehaviour
 
     void BeginCharge()
     {
-        if (!HasWeapon() || !CanPayMana())
+        if (!HasWeapon() || !CanCastCurrent() || !CanPayMana())
             return;
 
-        if (_spellCaster != null && !_spellCaster.TryBeginCast(currentMagic.TailCost))
+        _chargeReservedTail = false;
+        if (currentMagic.TailCost > 0 && _spellCaster != null && !_spellCaster.TryBeginCast(currentMagic.TailCost))
         {
             Debug.Log("사용 가능한 꼬리가 없어 캐스팅할 수 없습니다.");
             return;
         }
 
+        _chargeReservedTail = currentMagic.TailCost > 0 && _spellCaster != null;
         _isCharging = true;
         _chargeStartTime = Time.time;
         if (CastingBarController.Instance != null)
@@ -152,14 +155,22 @@ public class PlayerAttack : MonoBehaviour
             return;
         }
 
+        if (currentMagic != null && !currentMagic.CanCast(gameObject))
+        {
+            CancelChargeReservation();
+            if (CastingBarController.Instance != null)
+                CastingBarController.Instance.Cancel();
+            return;
+        }
+
         bool fired = false;
-        if (raycaster != null && raycaster.TryGetMouseWorldPosition(out Vector3 target) && HasWeapon() && TryPayMana())
+        if (TryGetCastTarget(out Vector3 target) && HasWeapon() && TryPayMana())
         {
             currentMagic.Cast(gameObject, target);
             fired = true;
         }
 
-        if (_spellCaster != null)
+        if (_chargeReservedTail && _spellCaster != null)
         {
             if (fired)
                 _spellCaster.CompleteCast();
@@ -167,13 +178,15 @@ public class PlayerAttack : MonoBehaviour
                 _spellCaster.CancelCast();
         }
 
+        _chargeReservedTail = false;
+
         if (CastingBarController.Instance != null)
             CastingBarController.Instance.Hide();
     }
 
     void BeginChannelCast()
     {
-        if (!HasWeapon() || !CanPayMana())
+        if (!HasWeapon() || !CanCastCurrent() || !CanPayMana())
             return;
 
         if (currentMagic is not ChannelMagicData channel)
@@ -220,16 +233,26 @@ public class PlayerAttack : MonoBehaviour
 
     void CastInstant()
     {
-        if (!HasWeapon() || !CanPayMana())
+        if (!HasWeapon() || !CanCastCurrent() || !CanPayMana())
             return;
 
-        if (raycaster == null || !raycaster.TryGetMouseWorldPosition(out Vector3 target))
+        if (!TryGetCastTarget(out Vector3 target))
             return;
 
         if (!TryPayMana())
             return;
 
         currentMagic.Cast(gameObject, target);
+    }
+
+    /// <inheritdoc />
+    public void RestoreForHome()
+    {
+        if (_isCharging)
+            CancelCharge();
+
+        if (_channelEffect != null)
+            StopChannelEffect();
     }
 
     void CancelCharge()
@@ -242,8 +265,11 @@ public class PlayerAttack : MonoBehaviour
 
     void CancelChargeReservation()
     {
-        if (_spellCaster != null)
-            _spellCaster.CancelCast();
+        if (!_chargeReservedTail || _spellCaster == null)
+            return;
+
+        _chargeReservedTail = false;
+        _spellCaster.CancelCast();
     }
 
     void StopChannelEffect()
@@ -253,6 +279,26 @@ public class PlayerAttack : MonoBehaviour
         _channelTailTimer = 0f;
         if (effect != null)
             effect.Stop();
+    }
+
+    bool TryGetCastTarget(out Vector3 target)
+    {
+        if (raycaster != null && raycaster.TryGetMouseWorldPosition(out target))
+            return true;
+
+        if (currentMagic != null && !currentMagic.NeedsTargetPoint)
+        {
+            target = transform.position;
+            return true;
+        }
+
+        target = default;
+        return false;
+    }
+
+    bool CanCastCurrent()
+    {
+        return currentMagic != null && currentMagic.CanCast(gameObject);
     }
 
     bool HasWeapon()

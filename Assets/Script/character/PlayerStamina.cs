@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PlayerStamina : MonoBehaviour
+public class PlayerStamina : MonoBehaviour, IHomeRestorable
 {
     [Header("Stamina")]
     [SerializeField] private float maxStamina = 100f;
@@ -94,6 +94,14 @@ public class PlayerStamina : MonoBehaviour
             wasSprintDraining = true;
             OnStaminaConsumed?.Invoke();
         }
+    }
+
+    /// <inheritdoc />
+    public void RestoreForHome()
+    {
+        currentStamina = maxStamina;
+        wasSprintDraining = false;
+        NotifyChanged(force: true);
     }
 
     public bool TryConsumeDash()

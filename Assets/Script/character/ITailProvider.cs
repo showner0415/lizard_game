@@ -9,6 +9,9 @@ public interface ITailProvider
     /// <summary>Number of tails that could be reserved right now.</summary>
     int AvailableTailCount { get; }
 
+    /// <summary>Number of tails that are currently regenerating.</summary>
+    int RegeneratingTailCount { get; }
+
     /// <summary>Raised whenever <see cref="AvailableTailCount"/> may have changed (Observer hook for UI/AI).</summary>
     event Action AvailabilityChanged;
 

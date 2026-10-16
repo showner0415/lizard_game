@@ -13,9 +13,11 @@ MonoBehaviour:
   m_Name: lightningSpear
   m_EditorClassIdentifier: Assembly-CSharp::ProjectileMagicData
   isDarkMagic: 0
+  castMode: 0
   castingTime: 1.2
   manaCost: 8
-  tailCost: 2
+  tailCost: 1
+  selfDamageScale: 0
   projectilePrefab: {fileID: 9130907451964624026, guid: 3b8d5f1a6c2e47d9b0a4e7c8f1d29530, type: 3}
   damage: 20
   speed: 28
@@ -26,3 +28,4 @@ MonoBehaviour:
   spreadAngle: 0
   maxRange: 20
   pierceCount: -1
+  explosionRadius: 0
