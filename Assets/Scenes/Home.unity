@@ -283,6 +283,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StashWindow
   _panel: {fileID: 556962180}
   _presenter: {fileID: 556962182}
+--- !u!95 &120520852 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+  m_PrefabInstance: {fileID: 666460721}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &120520853 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+  m_PrefabInstance: {fileID: 666460721}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &139830630
 GameObject:
   m_ObjectHideFlags: 0
@@ -480,79 +490,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 238171339}
   m_CullTransparentMesh: 1
---- !u!1001 &276472578
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 2107582751}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.5
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1.51
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.5
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_Name
-      value: Gecko_Walk
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 7dd123c314c03694295724260bb22418, type: 3}
-      propertyPath: m_Controller
-      value: 
-      objectReference: {fileID: 9100000, guid: 1b26d103221c0784796360d61e0c3cd8, type: 2}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 7dd123c314c03694295724260bb22418, type: 3}
 --- !u!1 &341535052
 GameObject:
   m_ObjectHideFlags: 0
@@ -2076,6 +2013,67 @@ Transform:
   - {fileID: 425316112}
   m_Father: {fileID: 2107582751}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &666460721
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2107582751}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_Name
+      value: Gecko
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 1b26d103221c0784796360d61e0c3cd8, type: 2}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: e3e07d9d8aa57704f86fae084d16e512, type: 3}
 --- !u!1 &667806708
 GameObject:
   m_ObjectHideFlags: 0
@@ -2328,11 +2326,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!4 &731934480 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 7dd123c314c03694295724260bb22418, type: 3}
-  m_PrefabInstance: {fileID: 276472578}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &734950498
 GameObject:
   m_ObjectHideFlags: 0
@@ -6206,7 +6199,7 @@ MonoBehaviour:
   moveSpeed: 5
   sprintSpeed: 8
   dashSpeed: 14
-  dashDuration: 0.28
+  dashDuration: 0.5
   faceDashDirection: 1
   allowDashWithoutMoveInput: 1
   dashSpeedCurve:
@@ -6357,7 +6350,7 @@ Transform:
   m_Children:
   - {fileID: 21111272}
   - {fileID: 642593308}
-  - {fileID: 731934480}
+  - {fileID: 120520853}
   m_Father: {fileID: 139830632}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2107582752
@@ -6372,11 +6365,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2340ee5ba1e59b46858fd55d8333df2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GeckoAnimDriver
-  animator: {fileID: 0}
+  animator: {fileID: 120520852}
+  movement: {fileID: 2107582746}
   clipNaturalSpeed: 0.21
   idleThreshold: 0.1
   minPlaybackSpeed: 0.6
   maxPlaybackSpeed: 3
+  useForwardRoll: 1
+  rollDuration: 0.5
 --- !u!1 &2129911687
 GameObject:
   m_ObjectHideFlags: 0
