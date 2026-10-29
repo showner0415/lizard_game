@@ -105,6 +105,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InventorySlotView
   _iconImage: {fileID: 4390814255700842202}
   _countText: {fileID: 4172937389931923214}
+  _rejectColor: {r: 1, g: 0.25, b: 0.25, a: 1}
+  _flashDuration: 0.35
 --- !u!1 &5989980707978948030
 GameObject:
   m_ObjectHideFlags: 0
@@ -139,8 +141,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 29.4, y: -14.2}
-  m_SizeDelta: {x: 40, y: 40}
+  m_AnchoredPosition: {x: 10.4, y: -15.6}
+  m_SizeDelta: {x: 80, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5544682677952025977
 CanvasRenderer:

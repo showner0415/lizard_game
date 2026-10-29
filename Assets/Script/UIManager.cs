@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 어떤 창이 열려 있는지를 아는 곳. Tab, 상자, 창고, 닫기를 여기서 정한다.
+/// 어떤 창이 열려 있는지를 아는 곳. Tab, 상자, 창고, 비늘 선택, 닫기를 여기서 정한다.
 /// </summary>
 public class UIManager : MonoBehaviour
 {
@@ -10,12 +10,14 @@ public class UIManager : MonoBehaviour
     InventoryWindow _inventory;
     ChestWindow _chest;
     StashWindow _stash;
+    ScaleSelectWindow _scaleSelect;
 
-    /// <summary>인벤, 상자, 창고 중 하나라도 켜져 있으면 true.</summary>
+    /// <summary>인벤, 상자, 창고, 비늘 선택 중 하나라도 켜져 있으면 true.</summary>
     public bool IsAnyWindowOpen =>
         (_inventory != null && _inventory.IsOpen) ||
         (_chest != null && _chest.IsOpen) ||
-        (_stash != null && _stash.IsOpen);
+        (_stash != null && _stash.IsOpen) ||
+        (_scaleSelect != null && _scaleSelect.IsOpen);
 
     /// <summary>상자 창이 켜져 있으면 true.</summary>
     public bool IsChestOpen => _chest != null && _chest.IsOpen;
@@ -73,6 +75,16 @@ public class UIManager : MonoBehaviour
             _stash = null;
     }
 
+    /// <summary>비늘 선택 창을 등록한다.</summary>
+    public void RegisterScaleSelect(ScaleSelectWindow window) => _scaleSelect = window;
+
+    /// <summary>비늘 선택 창 등록을 해제한다.</summary>
+    public void UnregisterScaleSelect(ScaleSelectWindow window)
+    {
+        if (_scaleSelect == window)
+            _scaleSelect = null;
+    }
+
     /// <summary>열려 있으면 모두 닫고, 아니면 인벤만 연다.</summary>
     public void Toggle()
     {
@@ -125,6 +137,7 @@ public class UIManager : MonoBehaviour
         _inventory?.Hide();
         _chest?.Hide();
         _stash?.Hide();
+        _scaleSelect?.Hide();
         ItemTransfer.ReturnHeldOrDrop();
         if (saveStash && SaveManager.Instance != null)
             SaveManager.Instance.SaveGame();

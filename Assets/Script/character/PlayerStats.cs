@@ -19,6 +19,9 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHomeRestorable
     /// <summary>체력이 바뀔 때 현재 체력과 함께 발생한다.</summary>
     public event Action<int> OnHealthChanged;
 
+    /// <summary>이번 삶에서 이미 죽었으면 true. 거점 회복 때 풀린다.</summary>
+    public bool IsDead => isDead;
+
     private void Awake()
     {
         currentHP = maxHP;
@@ -76,11 +79,28 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHomeRestorable
         isDead = true;
         Debug.Log("플레이어 사망 → 던전 인벤 소실 후 Home 이동");
 
+        // 저장보다 먼저 비운다. 그렇지 않으면 장전 칸 수가 세이브에 남는다.
+        ApplyDeathPenalties();
+
         if (SaveManager.Instance != null)
             SaveManager.Instance.SaveOnDeath();
 
         if (PlayerRoot.Instance != null)
             PlayerRoot.Instance.MoveToScene(homeSceneName);
+    }
+
+    void ApplyDeathPenalties()
+    {
+        Transform root = PlayerRoot.Instance != null ? PlayerRoot.Instance.transform : transform;
+        IDeathPenalty[] penalties = root.GetComponentsInChildren<IDeathPenalty>(true);
+        for (int i = 0; i < penalties.Length; i++)
+        {
+            IDeathPenalty penalty = penalties[i];
+            if (penalty is UnityEngine.Object unityObject && unityObject == null)
+                continue;
+
+            penalty.ApplyDeathPenalty();
+        }
     }
 
     /// <inheritdoc />

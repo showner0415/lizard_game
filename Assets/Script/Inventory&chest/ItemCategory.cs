@@ -3,8 +3,10 @@ public enum ItemCategory
     Equipment,
     Consumable,
     MagicBook,
-    gita
+    gita,
 
+    /// <summary>파밍 비늘. 장전하면 탄창에 들어간다.</summary>
+    Scale = 4
 }
 
 public enum EquipmentType

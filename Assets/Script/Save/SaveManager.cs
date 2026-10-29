@@ -119,6 +119,15 @@ public class SaveManager : MonoBehaviour
             Debug.Log($"[SaveManager] ✓ 핫바 캡처 완료 ({Current.hotbar?.Length ?? 0}개 슬롯)");
         }
 
+        ScaleLoader scaleLoader = FindScaleLoader();
+        if (scaleLoader != null)
+        {
+            scaleLoader.CaptureState(Current);
+            if (Current.version < 2)
+                Current.version = 2;
+            Debug.Log($"[SaveManager] ✓ 비늘 캡처 완료 (item {Current.loadedScaleItemNum}, {Current.loadedScaleCount}칸)");
+        }
+
         Debug.Log($"[SaveManager] ✓ CaptureFromSystems 완료 - 창고: {Current.stash?.Length ?? 0}개 슬롯");
     }
 
@@ -129,6 +138,18 @@ public class SaveManager : MonoBehaviour
 
         if (HotbarController.Instance != null)
             HotbarController.Instance.RestoreState(Current);
+
+        // version 2 미만은 탄창 필드가 없다. 없는 int는 0이라 itemNum 0번 아이템으로 오해할 수 있다.
+        if (Current.version >= 2)
+            FindScaleLoader()?.RestoreState(Current, itemDatabase);
+    }
+
+    static ScaleLoader FindScaleLoader()
+    {
+        if (PlayerRoot.Instance == null)
+            return null;
+
+        return PlayerRoot.Instance.GetComponentInChildren<ScaleLoader>(true);
     }
 
     // =========================================================

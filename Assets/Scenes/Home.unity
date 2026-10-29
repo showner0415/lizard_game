@@ -1025,11 +1025,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46548a13abecffb41b87376dd31769e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tail
-  _overrideRegenerationDelay: 0
-  _regenerationDelay: 6
   _visualRenderers: []
   _colliders: []
   _autoCollectIfEmpty: 1
+  _colorPropertyName: _BaseColor
 --- !u!136 &425316115
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -1995,8 +1994,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a642ba0e44c1bd4e95cb14569db100e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TailManager
-  _defaultRegenerationDelay: 6
-  _reservationTimeoutSeconds: 15
+  _regenTimePerSlot: 0.6
 --- !u!4 &642593308
 Transform:
   m_ObjectHideFlags: 0
@@ -5847,6 +5845,8 @@ GameObject:
   - component: {fileID: 2107582737}
   - component: {fileID: 2107582738}
   - component: {fileID: 2107582752}
+  - component: {fileID: 2107582753}
+  - component: {fileID: 2107582754}
   m_Layer: 3
   m_Name: Player
   m_TagString: Player
@@ -5891,7 +5891,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 74d1131b88f43bc40bb0b486dda65951, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpellCaster
-  _tailProviderSource: {fileID: 642593307}
+  _magazineSource: {fileID: 642593307}
   _minTimedCastDuration: 0.05
 --- !u!114 &2107582740
 MonoBehaviour:
@@ -6111,6 +6111,26 @@ MonoBehaviour:
         m_CallState: 2
     m_ActionId: 9a96ce63-8ecd-4bf2-90fc-884b8563dc1d
     m_ActionName: 'Player/Hotbar5[/Keyboard/5]'
+  - m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2107582753}
+        m_TargetAssemblyTypeName: ScaleLoader, Assembly-CSharp
+        m_MethodName: OnReload
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+    m_ActionId: 8bdfe60d-40c8-4565-be4c-92a1c68769e8
+    m_ActionName: 'Player/Reload[/Keyboard/r]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 47dfb431-c8a6-4352-bb15-14c638f5220b
+    m_ActionName: 'Player/ScaleSelect[/Keyboard/g]'
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: Player
@@ -6165,10 +6185,11 @@ MonoBehaviour:
   firePoint: {fileID: 21111272}
   magicSpeed: 20
   raycaster: {fileID: 2107582743}
-  _spellCaster: {fileID: 2107582739}
+  _scaleSpender: {fileID: 2107582739}
+  _actionGate: {fileID: 0}
   playerWeapon: {fileID: 0}
   playerMana: {fileID: 2107582737}
-  _channelTailInterval: 1
+  _channelScaleInterval: 1
 --- !u!114 &2107582745
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6373,6 +6394,38 @@ MonoBehaviour:
   maxPlaybackSpeed: 3
   useForwardRoll: 1
   rollDuration: 0.5
+--- !u!114 &2107582753
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2107582736}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d96a382b525b514c9096073ca513583, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScaleLoader
+  _magazineSource: {fileID: 0}
+  _scaleSpender: {fileID: 2107582739}
+  _playerMana: {fileID: 2107582737}
+  _actionGate: {fileID: 0}
+  _playerStats: {fileID: 0}
+  _defaultScale: {fileID: 11400000, guid: 208346f9518d16848aafab97a3d4b2ea, type: 2}
+  _loadPerAction: 1
+  _debugSelectItem: {fileID: 0}
+--- !u!114 &2107582754
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2107582736}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74d7dea52177058419b4bb39e8ac9488, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerActionGate
 --- !u!1 &2129911687
 GameObject:
   m_ObjectHideFlags: 0

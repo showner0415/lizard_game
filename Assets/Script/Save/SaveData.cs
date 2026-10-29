@@ -34,4 +34,10 @@ public class SaveData
 
     /// <summary>장비칸 아이템 ID. EquipmentSlotType 순서, 빈 칸은 -1.</summary>
     public int[] equippedItemNums = Array.Empty<int>();
+
+    /// <summary>장전된 파밍 비늘의 itemNum. 기본 비늘이면 -1. version 2부터 기록한다.</summary>
+    public int loadedScaleItemNum = -1;
+
+    /// <summary>장전된 칸 수. 탄창에는 한 종류만 들어 있다.</summary>
+    public int loadedScaleCount;
 }

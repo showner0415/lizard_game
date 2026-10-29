@@ -139,6 +139,49 @@ public sealed class InventoryModel
         return FillEmptySlots(item, amount) <= 0;
     }
 
+    /// <summary>How many of <paramref name="item"/> are stored, summed across stacks. Same asset reference only.</summary>
+    public int CountOf(ItemData item)
+    {
+        if (item == null || _slots == null)
+            return 0;
+
+        int count = 0;
+        for (int i = 0; i < _slots.Length; i++)
+        {
+            ItemStack stack = _slots[i];
+            if (stack != null && stack.HasItem && stack.item == item)
+                count += stack.amount;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Removes <paramref name="amount"/> of <paramref name="item"/>.
+    /// Removes nothing and returns false unless the whole amount is present.
+    /// Each changed slot raises <see cref="OnSlotChanged"/>.
+    /// </summary>
+    public bool TryRemove(ItemData item, int amount)
+    {
+        if (item == null || amount < 1 || CountOf(item) < amount)
+            return false;
+
+        int remain = amount;
+        for (int i = 0; i < _slots.Length && remain > 0; i++)
+        {
+            ItemStack stack = _slots[i];
+            if (stack == null || !stack.HasItem || stack.item != item)
+                continue;
+
+            int take = Math.Min(stack.amount, remain);
+            stack.Set(stack.item, stack.amount - take);
+            remain -= take;
+            RaiseSlot(i);
+        }
+
+        return true;
+    }
+
     /// <summary>Lightweight save payload (itemNum + amount only).</summary>
     public SlotSaveData[] ToSaveArray()
     {

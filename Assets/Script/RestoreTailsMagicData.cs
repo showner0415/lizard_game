@@ -1,13 +1,13 @@
 ﻿using UnityEngine;
 
-/// <summary>재생 중인 꼬리를 즉시 되돌리는 마법.</summary>
-[CreateAssetMenu(fileName = "RestoreTailsMagic", menuName = "Magic/Restore Tails")]
+/// <summary>빈 비늘 칸을 앞 번호부터 즉시 자라게(Grown) 하는 마법. 장전은 하지 않는다.</summary>
+[CreateAssetMenu(fileName = "RestoreScalesMagic", menuName = "Magic/Restore Scales")]
 public class RestoreTailsMagicData : MagicData
 {
-    [SerializeField, Min(1), Tooltip("한 번에 되돌릴 꼬리 수.")]
+    [SerializeField, Min(1), Tooltip("한 번에 자라게 할 빈 칸 수.")]
     int _restoreCount = 1;
 
-    /// <summary>되돌릴 꼬리 수. 1 이상.</summary>
+    /// <summary>자라게 할 빈 칸 수. 1 이상.</summary>
     public int RestoreCount => _restoreCount < 1 ? 1 : _restoreCount;
 
     /// <inheritdoc />
@@ -26,11 +26,11 @@ public class RestoreTailsMagicData : MagicData
     /// <inheritdoc />
     public override bool CanCast(GameObject caster)
     {
-        ITailProvider provider = FindProvider(caster);
-        if (provider != null && provider.RegeneratingTailCount > 0)
+        IScaleMagazine magazine = FindMagazine(caster);
+        if (magazine != null && magazine.EmptyCount > 0)
             return true;
 
-        Debug.Log("[RestoreTailsMagicData] 재생 중인 꼬리가 없어 시전하지 않습니다.");
+        Debug.Log("[RestoreTailsMagicData] 빈 비늘 칸이 없어 시전하지 않습니다.");
         return false;
     }
 
@@ -40,27 +40,27 @@ public class RestoreTailsMagicData : MagicData
         if (caster == null)
             return;
 
-        ITailProvider provider = FindProvider(caster);
-        if (provider == null)
+        IScaleMagazine magazine = FindMagazine(caster);
+        if (magazine == null)
         {
-            Debug.LogWarning($"[RestoreTailsMagicData] '{name}' 시전자에게 꼬리가 없습니다.", caster);
+            Debug.LogWarning($"[RestoreTailsMagicData] '{name}' 시전자에게 비늘 탄창이 없습니다.", caster);
             return;
         }
 
-        int restored = provider.RestoreRegeneratingTails(RestoreCount);
+        int restored = magazine.RestoreRegeneratingScales(RestoreCount);
         if (restored == 0)
-            Debug.Log("[RestoreTailsMagicData] 되돌릴 재생 중인 꼬리가 없습니다.");
+            Debug.Log("[RestoreTailsMagicData] 자라게 할 빈 비늘 칸이 없습니다.");
     }
 
-    static ITailProvider FindProvider(GameObject caster)
+    static IScaleMagazine FindMagazine(GameObject caster)
     {
         if (caster == null)
             return null;
 
-        SpellCaster spellCaster = caster.GetComponentInParent<SpellCaster>();
-        if (spellCaster != null)
-            return spellCaster.TailProvider;
+        ScaleSpender spender = caster.GetComponentInParent<ScaleSpender>();
+        if (spender != null)
+            return spender.Magazine;
 
-        return caster.GetComponentInParent<ITailProvider>();
+        return caster.GetComponentInParent<IScaleMagazine>();
     }
 }
