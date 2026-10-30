@@ -17,6 +17,7 @@ public sealed class EquipmentPresenter : MonoBehaviour
 
     private readonly EquipmentSlotView[] _views = new EquipmentSlotView[EquipmentModel.SlotCount];
     private EquipmentModel _model;
+    private IScaleMagazine _magazine;
     private bool _subscribed;
     private EquipmentSlotType? _hovered;
 
@@ -42,10 +43,13 @@ public sealed class EquipmentPresenter : MonoBehaviour
 
         if (_model != null)
             SubscribeAndSync();
+
+        SubscribeMagazine();
     }
 
     private void OnDisable()
     {
+        UnsubscribeMagazine();
         UnsubscribeModel();
         UnbindViewEvents();
         if (_hovered != null)
@@ -69,6 +73,9 @@ public sealed class EquipmentPresenter : MonoBehaviour
 
         RebuildViews();
         _model.PublishFullState();
+        if (_magazine == null)
+            SubscribeMagazine();
+        RenderLoadedScale();
     }
 
     private void UnsubscribeModel()
@@ -82,10 +89,64 @@ public sealed class EquipmentPresenter : MonoBehaviour
 
     private void HandleEquipmentChanged(EquipmentSlotType slot, ItemData item)
     {
+        if (slot == EquipmentSlotType.LoadedScale)
+            return;
+
         int index = (int)slot;
         if (index < 0 || index >= _views.Length || _views[index] == null)
             return;
         _views[index].Render(item);
+    }
+
+    void SubscribeMagazine()
+    {
+        UnsubscribeMagazine();
+        if (PlayerRoot.Instance == null)
+            return;
+
+        ScaleLoader loader = PlayerRoot.Instance.GetComponentInChildren<ScaleLoader>(true);
+        if (loader == null)
+            return;
+
+        _magazine = loader.Magazine;
+        if (_magazine == null)
+            return;
+
+        _magazine.SlotsChanged += HandleSlotsChanged;
+        RenderLoadedScale();
+    }
+
+    void UnsubscribeMagazine()
+    {
+        if (_magazine == null)
+            return;
+
+        _magazine.SlotsChanged -= HandleSlotsChanged;
+        _magazine = null;
+    }
+
+    void HandleSlotsChanged()
+    {
+        RenderLoadedScale();
+    }
+
+    void RenderLoadedScale()
+    {
+        int index = (int)EquipmentSlotType.LoadedScale;
+        if (index < 0 || index >= _views.Length || _views[index] == null)
+            return;
+
+        Sprite icon = null;
+        int count = 0;
+        if (_magazine != null)
+        {
+            ScaleData scale = _magazine.CurrentScale;
+            if (scale != null)
+                icon = scale.Icon;
+            count = _magazine.LoadedCount + _magazine.ReservedCount;
+        }
+
+        _views[index].RenderLoadedScale(icon, count);
     }
 
     private void HandleSlotClicked(EquipmentSlotView view, PointerEventData eventData)
@@ -150,9 +211,9 @@ public sealed class EquipmentPresenter : MonoBehaviour
     {
         switch (slot)
         {
-            case EquipmentSlotType.Weapon: return "무기";
+            case EquipmentSlotType.LoadedScale: return "장전";
             case EquipmentSlotType.Armor: return "갑옷";
-            case EquipmentSlotType.Tail: return "꼬리";
+            case EquipmentSlotType.Tail: return "꼬리 장식";
             case EquipmentSlotType.Bag: return "가방";
             default: return slot.ToString();
         }

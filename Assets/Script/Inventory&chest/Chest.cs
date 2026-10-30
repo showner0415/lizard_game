@@ -6,6 +6,8 @@ public class Chest : SearchableObject
 {
     public ChestType chestType;
 
+    static bool _warnedMagicBookChest;
+
     public override List<ItemData> GenerateItems()
     {
         generatedItems = new List<ItemData>();
@@ -50,6 +52,15 @@ public class Chest : SearchableObject
         return $"[Chest] '{name}' ({chestType})에 맞는 아이템이 없습니다. 후보: {names}";
     }
 
+    void WarnMagicBookChest()
+    {
+        if (_warnedMagicBookChest)
+            return;
+
+        _warnedMagicBookChest = true;
+        Debug.LogWarning("[Chest] 마법서 상자: 꼬리 장식 상자로 바꾸세요.", this);
+    }
+
 
     List<ItemData> FilterItemsByChestType()
     {
@@ -70,11 +81,8 @@ public class Chest : SearchableObject
                     potion.consumableType == ConsumableType.Potion
                 ).ToList();
 
-            case ChestType.Weapon:
-                return possibleItems.Where(i =>
-                    i is EquipmentItemData weapon &&
-                    weapon.equipmentType == EquipmentType.Weapon
-                ).ToList();
+            case ChestType.Ornament:
+                return possibleItems.Where(i => i is TailOrnamentItemData).ToList();
 
             case ChestType.Accessory:
                 return possibleItems.Where(i =>
@@ -83,15 +91,14 @@ public class Chest : SearchableObject
                 ).ToList();
 
             case ChestType.MagicBook:
-                return possibleItems.Where(i =>
-                    i is MagicBookItemData book &&
-                    !book.IsDark
-                ).ToList();
-
             case ChestType.DarkMagic:
+                WarnMagicBookChest();
+                return possibleItems.Where(i => i is TailOrnamentItemData).ToList();
+
+            case ChestType.Scale:
                 return possibleItems.Where(i =>
-                    i is MagicBookItemData book &&
-                    book.IsDark
+                    i is ScaleItemData scaleItem &&
+                    scaleItem.Scale != null
                 ).ToList();
         }
 

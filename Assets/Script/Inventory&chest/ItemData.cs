@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 인벤토리, 드롭, 세이브가 공통으로 쓰는 아이템 데이터.
-/// 종류별 필드는 <see cref="EquipmentItemData"/>, <see cref="ConsumableItemData"/>, <see cref="MagicBookItemData"/>, <see cref="ScaleItemData"/>에 둔다.
+/// 종류별 필드는 <see cref="EquipmentItemData"/>, <see cref="ConsumableItemData"/>, <see cref="TailOrnamentItemData"/>, <see cref="ScaleItemData"/>에 둔다.
 /// </summary>
 public abstract class ItemData : ScriptableObject
 {

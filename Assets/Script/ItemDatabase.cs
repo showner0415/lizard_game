@@ -22,7 +22,13 @@ public class ItemDatabase : ScriptableObject
 
         foreach (ItemData item in items)
         {
-            if (item == null || lookup.ContainsKey(item.itemNum))
+            if (item == null)
+            {
+                Debug.LogWarning("[ItemDatabase] 비어 있는 항목이 있어 건너뜁니다. 지운 에셋일 수 있습니다.", this);
+                continue;
+            }
+
+            if (lookup.ContainsKey(item.itemNum))
                 continue;
 
             lookup.Add(item.itemNum, item);

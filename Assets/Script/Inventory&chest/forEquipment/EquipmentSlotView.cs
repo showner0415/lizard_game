@@ -10,6 +10,8 @@ public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPo
     [SerializeField] private Image _frameImage;
     [SerializeField] private Image _iconImage;
     [SerializeField] private TMPro.TextMeshProUGUI _label;
+    [SerializeField, Tooltip("장전 칸의 장전 수. 비우면 숫자를 그리지 않는다.")]
+    private TMPro.TextMeshProUGUI _countText;
     [SerializeField] private Color _rejectColor = new Color(1f, 0.25f, 0.25f, 1f);
 
     [SerializeField, Min(0.05f)] private float _flashDuration = 0.35f;
@@ -33,8 +35,17 @@ public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPo
     private Coroutine _flashRoutine;
     EquipmentModel _model;
 
-    /// <summary>이 칸이 지금 장비 모델에서 읽고 있는 아이템. 비었으면 null.</summary>
-    public ItemData TooltipItem => _model != null && IsBound ? _model.Get(SlotType) : null;
+    /// <summary>이 칸이 지금 장비 모델에서 읽고 있는 아이템. 장전 표시 칸과 빈 칸은 null.</summary>
+    public ItemData TooltipItem
+    {
+        get
+        {
+            if (!IsBound || SlotType == EquipmentSlotType.LoadedScale || _model == null)
+                return null;
+
+            return _model.Get(SlotType);
+        }
+    }
 
     private void Awake()
     {
@@ -68,6 +79,25 @@ public sealed class EquipmentSlotView : MonoBehaviour, IPointerClickHandler, IPo
 
         _iconImage.sprite = has ? item.icon : null;
         _iconImage.enabled = has;
+        if (_countText != null)
+            _countText.enabled = false;
+    }
+
+    /// <summary>장전 표시 칸. 수가 0 이하면 아이콘과 글씨를 숨긴다.</summary>
+    public void RenderLoadedScale(Sprite icon, int count)
+    {
+        bool show = count > 0;
+        if (_iconImage != null)
+        {
+            _iconImage.sprite = show ? icon : null;
+            _iconImage.enabled = show && icon != null;
+        }
+
+        if (_countText == null)
+            return;
+
+        _countText.text = show ? $"×{count}" : string.Empty;
+        _countText.enabled = show;
     }
 
     /// <summary>넣을 수 없는 아이템을 놓았을 때 칸을 붉게 깜박인다.</summary>

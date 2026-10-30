@@ -6,7 +6,7 @@ using System;
 /// </summary>
 public sealed class EquipmentModel
 {
-    /// <summary>무기, 갑옷, 꼬리, 가방. <see cref="EquipmentSlotType"/> 순서와 같다.</summary>
+    /// <summary>장전 표시, 갑옷, 꼬리, 가방. <see cref="EquipmentSlotType"/> 순서와 같다.</summary>
     public const int SlotCount = 4;
 
     private readonly ItemData[] _slots = new ItemData[SlotCount];
@@ -20,9 +20,14 @@ public sealed class EquipmentModel
     /// <summary>그 칸에 아이템이 있으면 true.</summary>
     public bool HasItem(EquipmentSlotType slot) => Get(slot) != null;
 
-    /// <summary>그 칸 종류와 맞는 장비만 장착할 수 있다.</summary>
+    /// <summary>그 칸 종류와 맞는 장비만 장착할 수 있다. 장전 표시 칸에는 아무것도 넣지 못한다.</summary>
     public bool CanEquip(EquipmentSlotType slot, ItemData item)
-        => IsValid(slot) && item is EquipmentItemData eq && eq.slotType == slot;
+    {
+        if (slot == EquipmentSlotType.LoadedScale)
+            return false;
+
+        return IsValid(slot) && item is EquipmentItemData eq && eq.slotType == slot;
+    }
 
     /// <summary>장착. 기존 장비는 previous로 돌려준다.</summary>
     public bool TryEquip(EquipmentSlotType slot, ItemData item, out ItemData previous)
@@ -68,7 +73,7 @@ public sealed class EquipmentModel
             int num = ids != null && i < ids.Length ? ids[i] : -1;
             ItemData found = num >= 0 && database != null ? database.Get(num) : null;
             EquipmentSlotType slot = (EquipmentSlotType)i;
-            _slots[i] = found is EquipmentItemData eq && eq.slotType == slot ? found : null;
+            _slots[i] = CanEquip(slot, found) ? found : null;
         }
 
         PublishFullState();

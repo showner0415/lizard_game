@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 311be0c339196b54c8a9f226853f8507, type: 3}
+  m_Name: ScaleBase
+  m_EditorClassIdentifier: Assembly-CSharp::ScaleItemData
+  itemNum: 11
+  icon: {fileID: 21300000, guid: e7d29a79bc7fae248887c8a08a160303, type: 3}
+  rarity: 0
+  maxStack: 30
+  displayName: "\uBD80\uC11C\uC838\uAC00\uB294 \uBE44\uB298"
+  description: "\uAC00\uC7A5 \uAE30\uBCF8\uC801\uC778 \uBE44\uB298"
+  worldPrefab: {fileID: 756550975484237309, guid: 012e084d78544c94f95ca9b312f4d3e1, type: 3}
+  scale: {fileID: 11400000, guid: 208346f9518d16848aafab97a3d4b2ea, type: 2}

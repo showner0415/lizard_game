@@ -43,7 +43,6 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     private readonly List<ScaleSlot> _slots = new List<ScaleSlot>();
     private readonly HashSet<ScaleSlot> _slotSet = new HashSet<ScaleSlot>();
     private readonly List<ScaleReservation> _activeReservations = new List<ScaleReservation>();
-    private bool _isSubscribed;
 
     private bool _isRegenerating;
     private float _regenCompleteAtTime;
@@ -99,20 +98,30 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
         }
 
         DiscoverScales();
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            if (_slots[i] != null)
+                _slots[i].StateChanged += HandleScaleStateChanged;
+        }
     }
 
     private void OnEnable()
     {
-        SubscribeAll();
-
-        // Slots may have been emptied while unsubscribed; the deadline itself survives disabling.
         EnsureRegenerating();
     }
 
     private void OnDisable()
     {
-        UnsubscribeAll();
         StopRegenRoutine();
+    }
+
+    private void OnDestroy()
+    {
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            if (_slots[i] != null)
+                _slots[i].StateChanged -= HandleScaleStateChanged;
+        }
     }
 
     private void OnValidate()
@@ -133,8 +142,7 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
             return false;
 
         _slots.Add(slot);
-        if (_isSubscribed)
-            slot.StateChanged += HandleScaleStateChanged;
+        slot.StateChanged += HandleScaleStateChanged;
 
         SlotsChanged?.Invoke();
         EnsureRegenerating();
@@ -426,24 +434,6 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
         }
 
         return true;
-    }
-
-    private void SubscribeAll()
-    {
-        if (_isSubscribed) return;
-        _isSubscribed = true;
-
-        for (int i = 0; i < _slots.Count; i++)
-            if (_slots[i] != null) _slots[i].StateChanged += HandleScaleStateChanged;
-    }
-
-    private void UnsubscribeAll()
-    {
-        if (!_isSubscribed) return;
-        _isSubscribed = false;
-
-        for (int i = 0; i < _slots.Count; i++)
-            if (_slots[i] != null) _slots[i].StateChanged -= HandleScaleStateChanged;
     }
 
     private void HandleScaleStateChanged(IScaleSlot slot, ScaleSlotState previous, ScaleSlotState next)

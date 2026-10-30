@@ -18,6 +18,9 @@ public class ScaleItemData : ItemData
     {
         base.OnValidate();
         if (scale == null)
-            Debug.LogWarning($"[ScaleItemData] '{name}'에 ScaleData가 없습니다.", this);
+            Debug.LogWarning($"[ScaleItemData] '{name}'에 ScaleData가 없어 장전할 수 없습니다.", this);
+
+        if (maxStack == 1)
+            Debug.LogWarning($"[ScaleItemData] '{name}'은 겹치지 않아 상자와 인벤 칸을 비늘 하나마다 차지합니다.", this);
     }
 }

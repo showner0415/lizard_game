@@ -79,28 +79,23 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHomeRestorable
         isDead = true;
         Debug.Log("플레이어 사망 → 던전 인벤 소실 후 Home 이동");
 
-        // 저장보다 먼저 비운다. 그렇지 않으면 장전 칸 수가 세이브에 남는다.
-        ApplyDeathPenalties();
+        // 패널티를 저장보다 먼저 적용한다. 그래야 잃은 상태가 세이브에 남는다.
+        PlayerDeath.ApplyPenalties();
 
         if (SaveManager.Instance != null)
-            SaveManager.Instance.SaveOnDeath();
+        {
+            try
+            {
+                SaveManager.Instance.SaveGame();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
+        }
 
         if (PlayerRoot.Instance != null)
             PlayerRoot.Instance.MoveToScene(homeSceneName);
-    }
-
-    void ApplyDeathPenalties()
-    {
-        Transform root = PlayerRoot.Instance != null ? PlayerRoot.Instance.transform : transform;
-        IDeathPenalty[] penalties = root.GetComponentsInChildren<IDeathPenalty>(true);
-        for (int i = 0; i < penalties.Length; i++)
-        {
-            IDeathPenalty penalty = penalties[i];
-            if (penalty is UnityEngine.Object unityObject && unityObject == null)
-                continue;
-
-            penalty.ApplyDeathPenalty();
-        }
     }
 
     /// <inheritdoc />

@@ -18,9 +18,10 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
     [Tooltip("발사와 장전이 겹치지 않게 잠근다. 비우면 같은 오브젝트와 부모에서 찾음")]
     [SerializeField] private PlayerActionGate _actionGate;
 
-    [Header("Weapon")]
-    [Tooltip("무기칸 조회. 비우면 같은 오브젝트에서 찾음. 없으면 시전하지 않음")]
-    [SerializeField] private PlayerWeapon playerWeapon;
+    [Header("Ornament")]
+    [Tooltip("꼬리 장식에서 마법을 읽는다. 비우면 같은 오브젝트에서 찾음.")]
+    [FormerlySerializedAs("playerWeapon")]
+    [SerializeField] private PlayerOrnament _ornament;
 
     [Header("Mana Cost")]
     [Tooltip("시전 비용을 지불할 마나. 비우면 같은 오브젝트에서 찾음")]
@@ -50,11 +51,11 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         if (_actionGate == null)
             Debug.LogWarning("[PlayerAttack] PlayerActionGate를 찾지 못함 → 시전이 장전과 겹칠 수 있습니다.", this);
 
-        if (playerWeapon == null)
-            playerWeapon = GetComponent<PlayerWeapon>();
+        if (_ornament == null)
+            _ornament = GetComponent<PlayerOrnament>();
 
-        if (playerWeapon == null)
-            Debug.LogWarning("[PlayerAttack] PlayerWeapon을 찾지 못함 → 시전할 수 없습니다.", this);
+        if (_ornament == null)
+            Debug.LogWarning("[PlayerAttack] PlayerOrnament를 찾지 못함 → 시전할 수 없습니다.", this);
 
         if (playerMana == null)
             playerMana = GetComponent<PlayerMana>();
@@ -96,22 +97,23 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         if (UIManager.Instance != null && UIManager.Instance.IsAnyWindowOpen)
             return;
 
-        if (_actionGate != null && _actionGate.Current == PlayerAction.Loading && !_actionGate.RequestRelease())
-            return;
-
         if (_isCharging || _channelEffect != null)
             return;
 
-        if (HotbarController.Instance == null)
-        {
-            Debug.LogWarning("[PlayerAttack] HotbarController.Instance가 null입니다.");
-            return;
-        }
-
-        currentMagic = HotbarController.Instance.CurrentMagic;
-        if (currentMagic == null)
+        if (_ornament == null)
             return;
 
+        MagicData magic = _ornament.CurrentMagic;
+        if (magic == null)
+            return;
+
+        if (!CanStartFire(magic))
+            return;
+
+        if (_actionGate != null && _actionGate.Current == PlayerAction.Loading && !_actionGate.RequestRelease())
+            return;
+
+        currentMagic = magic;
         switch (currentMagic.Mode)
         {
             case CastMode.Channel:
@@ -149,7 +151,7 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
 
     void BeginCharge()
     {
-        if (!HasWeapon() || !CanCastCurrent() || !CanPayMana())
+        if (!CanCastCurrent() || !CanPayMana())
             return;
 
         if (!TryEnterAction(PlayerAction.Throwing))
@@ -193,7 +195,7 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
             }
 
             // 비늘 소모를 먼저 확정한다. 확정에 실패하면 발사하지 않는다.
-            bool canFire = TryGetCastTarget(out Vector3 target) && HasWeapon() && CanPayMana();
+            bool canFire = TryGetCastTarget(out Vector3 target) && CanPayMana();
             if (canFire && !ConfirmChargeReservation())
             {
                 Debug.Log("비늘 예약이 풀려 시전이 취소되었습니다.");
@@ -215,7 +217,7 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
 
     void BeginChannelCast()
     {
-        if (!HasWeapon() || !CanCastCurrent() || !CanPayMana())
+        if (!CanCastCurrent() || !CanPayMana())
             return;
 
         if (currentMagic is not ChannelMagicData channel)
@@ -272,11 +274,18 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
 
     void CastInstant()
     {
-        if (!HasWeapon() || !CanCastCurrent() || !CanPayMana())
+        if (!CanCastCurrent() || !CanPayMana())
             return;
 
         if (!TryGetCastTarget(out Vector3 target))
             return;
+
+        int cost = currentMagic.ScaleCost;
+        if (cost > 0 && (_scaleSpender == null || !_scaleSpender.TryConsumeNow(cost)))
+        {
+            Debug.Log("사용 가능한 비늘이 없어 시전할 수 없습니다.");
+            return;
+        }
 
         if (!TryPayMana())
             return;
@@ -365,18 +374,52 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         return false;
     }
 
+    bool CanStartFire(MagicData magic)
+    {
+        if (magic == null)
+            return false;
+
+        if (!magic.CanCast(gameObject))
+        {
+            Debug.Log("[PlayerAttack] 지금은 이 마법을 쓸 수 없습니다.");
+            return false;
+        }
+
+        if (playerMana != null && !playerMana.CanAfford(magic.ManaCost))
+        {
+            Debug.Log($"마나가 부족해 캐스팅할 수 없습니다. ({playerMana.CurrentMana}/{magic.ManaCost})");
+            return false;
+        }
+
+        int required = RequiredScales(magic);
+        if (required > 0)
+        {
+            IScaleMagazine magazine = null;
+            if (_scaleSpender != null)
+                magazine = _scaleSpender.Magazine;
+
+            int loaded = magazine != null ? magazine.LoadedCount : 0;
+            if (loaded < required)
+            {
+                Debug.Log("사용 가능한 비늘이 없어 캐스팅할 수 없습니다.");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static int RequiredScales(MagicData magic)
+    {
+        if (magic.Mode == CastMode.Channel)
+            return Mathf.Max(1, magic.ScaleCost);
+
+        return magic.ScaleCost;
+    }
+
     bool CanCastCurrent()
     {
         return currentMagic != null && currentMagic.CanCast(gameObject);
-    }
-
-    bool HasWeapon()
-    {
-        if (playerWeapon != null && playerWeapon.CurrentWeapon != null)
-            return true;
-
-        Debug.Log("무기가 없어 시전할 수 없습니다.");
-        return false;
     }
 
     bool CanPayMana()

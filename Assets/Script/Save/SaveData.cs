@@ -29,7 +29,7 @@ public class SaveData
     /// <summary>홈 창고. 사망해도 유지되는 확정 저장분.</summary>
     public SlotSaveData[] stash = Array.Empty<SlotSaveData>();
 
-    /// <summary>핫바 마법서 ID. MagicBookItemData.itemNum, 빈 칸은 -1.</summary>
+    /// <summary>꼬리 장식 퀵슬롯. TailOrnamentItemData.itemNum, 빈 칸 -1.</summary>
     public int[] hotbar = Array.Empty<int>();
 
     /// <summary>장비칸 아이템 ID. EquipmentSlotType 순서, 빈 칸은 -1.</summary>

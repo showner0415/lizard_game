@@ -40,8 +40,14 @@ public abstract class SearchableObject : MonoBehaviour, IInteractable
     /// <summary>상자 종류에 맞는 아이템 목록. 칸에 넣는 일은 이 클래스가 한다.</summary>
     public virtual List<ItemData> GenerateItems()
     {
-        int count = Random.Range(minItemCount, maxItemCount + 1);
         generatedItems = new List<ItemData>();
+        if (possibleItems == null || possibleItems.Count == 0)
+        {
+            Debug.LogWarning($"[SearchableObject] '{name}' Possible Items가 비어 있습니다.", this);
+            return generatedItems;
+        }
+
+        int count = Random.Range(minItemCount, maxItemCount + 1);
 
         for (int i = 0; i < count; i++)
         {
