@@ -117,7 +117,10 @@ public class HotbarController : MonoBehaviour
             return false;
 
         if (!controller.Inventory.TryRemove(item, 1))
+        {
+            GameNotice.Show(NoticeText.OrnamentNotOwned);
             return false;
+        }
 
         if (!controller.Equipment.TryEquip(EquipmentSlotType.Tail, item, out ItemData previous))
         {

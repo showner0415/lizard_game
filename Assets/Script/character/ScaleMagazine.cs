@@ -49,9 +49,34 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     private Coroutine _regenRoutine;
     private bool _regenRoutineRunning;
     private int _regenGeneration;
+    private int _batchDepth;
+    private bool _batchDirty;
 
     /// <inheritdoc />
     public event Action SlotsChanged;
+
+    /// <inheritdoc />
+    public void BeginBatch()
+    {
+        _batchDepth++;
+    }
+
+    /// <inheritdoc />
+    public void EndBatch()
+    {
+        if (_batchDepth <= 0)
+        {
+            Debug.LogWarning("[ScaleMagazine] EndBatch가 시작보다 많습니다.", this);
+            return;
+        }
+
+        _batchDepth--;
+        if (_batchDepth > 0 || !_batchDirty)
+            return;
+
+        _batchDirty = false;
+        RaiseSlotsChanged();
+    }
 
     /// <inheritdoc />
     public int Capacity => _slots.Count;
@@ -113,10 +138,14 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     private void OnDisable()
     {
         StopRegenRoutine();
+        _batchDepth = 0;
+        _batchDirty = false;
     }
 
     private void OnDestroy()
     {
+        _batchDepth = 0;
+        _batchDirty = false;
         for (int i = 0; i < _slots.Count; i++)
         {
             if (_slots[i] != null)
@@ -144,7 +173,7 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
         _slots.Add(slot);
         slot.StateChanged += HandleScaleStateChanged;
 
-        SlotsChanged?.Invoke();
+        RaiseSlotsChanged();
         EnsureRegenerating();
         return true;
     }
@@ -160,7 +189,7 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
         if (IndexOfFirst(ScaleSlotState.Empty) < 0)
             StopRegeneration();
 
-        SlotsChanged?.Invoke();
+        RaiseSlotsChanged();
         return true;
     }
 
@@ -207,18 +236,26 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
             return 0;
         }
 
-        int loaded = 0;
-        for (int i = 0; i < _slots.Count && loaded < count; i++)
+        BeginBatch();
+        try
         {
-            ScaleSlot slot = _slots[i];
-            if (slot == null || slot.State != ScaleSlotState.Grown)
-                continue;
+            int loaded = 0;
+            for (int i = 0; i < _slots.Count && loaded < count; i++)
+            {
+                ScaleSlot slot = _slots[i];
+                if (slot == null || slot.State != ScaleSlotState.Grown)
+                    continue;
 
-            if (slot.TryLoad(scale))
-                loaded++;
+                if (slot.TryLoad(scale))
+                    loaded++;
+            }
+
+            return loaded;
         }
-
-        return loaded;
+        finally
+        {
+            EndBatch();
+        }
     }
 
     /// <inheritdoc />
@@ -227,11 +264,19 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
         if (count < 1)
             return 0;
 
-        int restored = GrowEmpty(count);
-        if (IndexOfFirst(ScaleSlotState.Empty) < 0)
-            StopRegeneration();
+        BeginBatch();
+        try
+        {
+            int restored = GrowEmpty(count);
+            if (IndexOfFirst(ScaleSlotState.Empty) < 0)
+                StopRegeneration();
 
-        return restored;
+            return restored;
+        }
+        finally
+        {
+            EndBatch();
+        }
     }
 
     /// <inheritdoc />
@@ -239,36 +284,52 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     {
         unloadedScale = null;
         int unloaded = 0;
-        for (int i = 0; i < _slots.Count; i++)
+        BeginBatch();
+        try
         {
-            ScaleSlot slot = _slots[i];
-            if (slot == null || slot.State != ScaleSlotState.Loaded)
-                continue;
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                ScaleSlot slot = _slots[i];
+                if (slot == null || slot.State != ScaleSlotState.Loaded)
+                    continue;
 
-            ScaleData held = slot.Scale;
-            if (!slot.TryUnload())
-                continue;
+                ScaleData held = slot.Scale;
+                if (!slot.TryUnload())
+                    continue;
 
-            if (unloadedScale == null)
-                unloadedScale = held;
-            else if (held != null && held != unloadedScale)
-                Debug.LogWarning($"[ScaleMagazine] UnloadAll found '{held.name}' after '{unloadedScale.name}'. A magazine should hold one scale.", this);
+                if (unloadedScale == null)
+                    unloadedScale = held;
+                else if (held != null && held != unloadedScale)
+                    Debug.LogWarning($"[ScaleMagazine] UnloadAll found '{held.name}' after '{unloadedScale.name}'. A magazine should hold one scale.", this);
 
-            unloaded++;
+                unloaded++;
+            }
+
+            if (unloaded == 0)
+                unloadedScale = null;
+
+            return unloaded;
         }
-
-        if (unloaded == 0)
-            unloadedScale = null;
-
-        return unloaded;
+        finally
+        {
+            EndBatch();
+        }
     }
 
     /// <inheritdoc />
     public void RestoreForHome()
     {
-        ReleaseActiveReservations();
-        GrowEmpty(int.MaxValue);
-        StopRegeneration();
+        BeginBatch();
+        try
+        {
+            ReleaseActiveReservations();
+            GrowEmpty(int.MaxValue);
+            StopRegeneration();
+        }
+        finally
+        {
+            EndBatch();
+        }
     }
 
     /// <inheritdoc />
@@ -276,17 +337,33 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     {
         // 선딜 중인 칸은 Loaded가 아니라서, 먼저 예약을 풀어야 장전 해제에 걸린다.
         // 안 그러면 씬 이동 때 예약이 Loaded로 돌아가 거점까지 비늘이 남는다.
-        ReleaseActiveReservations();
-        UnloadAll(out _);
+        BeginBatch();
+        try
+        {
+            ReleaseActiveReservations();
+            UnloadAll(out _);
+        }
+        finally
+        {
+            EndBatch();
+        }
     }
 
     private void ReleaseActiveReservations()
     {
-        var pending = new List<ScaleReservation>(_activeReservations);
-        for (int i = 0; i < pending.Count; i++)
+        BeginBatch();
+        try
         {
-            if (pending[i] != null && pending[i].IsActive)
-                pending[i].Release();
+            var pending = new List<ScaleReservation>(_activeReservations);
+            for (int i = 0; i < pending.Count; i++)
+            {
+                if (pending[i] != null && pending[i].IsActive)
+                    pending[i].Release();
+            }
+        }
+        finally
+        {
+            EndBatch();
         }
     }
 
@@ -438,10 +515,33 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
 
     private void HandleScaleStateChanged(IScaleSlot slot, ScaleSlotState previous, ScaleSlotState next)
     {
-        SlotsChanged?.Invoke();
+        if (_batchDepth > 0)
+            _batchDirty = true;
+        else
+            RaiseSlotsChanged();
 
         if (next == ScaleSlotState.Empty)
             EnsureRegenerating();
+    }
+
+    /// <summary>구독자 하나가 예외를 던져도 나머지와 호출한 쪽은 계속된다.</summary>
+    void RaiseSlotsChanged()
+    {
+        Action handlers = SlotsChanged;
+        if (handlers == null)
+            return;
+
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action)handler).Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
+        }
     }
 
     private void CloseReservation(ScaleReservation reservation)
@@ -457,6 +557,9 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
         private readonly int _token;
 
         public bool IsActive { get; private set; } = true;
+
+        /// <inheritdoc />
+        public bool CanConfirm => IsActive && _slot != null && _slot.IsReservedBy(_token);
 
         public ScaleData Scale { get; }
 

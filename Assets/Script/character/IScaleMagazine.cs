@@ -31,6 +31,12 @@ public interface IScaleMagazine
     /// <summary>Raised whenever any slot changes state (Observer hook for UI/AI).</summary>
     event Action SlotsChanged;
 
+    /// <summary>여러 칸을 바꾸는 동안 알림을 모은다. 겹쳐 호출할 수 있다.</summary>
+    void BeginBatch();
+
+    /// <summary>가장 바깥 묶음이 끝날 때, 그 안에서 칸이 바뀌었으면 <see cref="SlotsChanged"/>를 한 번 올린다.</summary>
+    void EndBatch();
+
     /// <summary>
     /// Atomically claims the front-most Loaded slot. Returns false (and a null reservation) when none is loaded;
     /// the caller must then not start the spend.

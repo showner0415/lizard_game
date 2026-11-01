@@ -2,7 +2,7 @@
 using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 
-public class PlayerAttack : MonoBehaviour, IHomeRestorable
+public class PlayerAttack : MonoBehaviour, IHomeRestorable, IDeathPenalty, IGateInterruptible
 {
     [Header("Magic")]
     public MagicData currentMagic;
@@ -27,6 +27,9 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
     [Tooltip("시전 비용을 지불할 마나. 비우면 같은 오브젝트에서 찾음")]
     [SerializeField] private PlayerMana playerMana;
 
+    [Tooltip("죽었으면 발사하지 않는다. 비우면 같은 오브젝트와 부모에서 찾는다.")]
+    [SerializeField] private PlayerStats _playerStats;
+
     [FormerlySerializedAs("_channelTailInterval")]
     [SerializeField, Min(0.05f), Tooltip("채널링 중 비늘 1개를 소모하는 간격(초).")]
     float _channelScaleInterval = 1f;
@@ -39,6 +42,9 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
 
     /// <summary>차지(캐스팅) 중이거나 채널링 중이면 true.</summary>
     public bool IsCasting => _isCharging || _channelEffect != null;
+
+    /// <summary>이번 삶에서 이미 죽었으면 true.</summary>
+    bool IsDead => _playerStats != null && _playerStats.IsDead;
 
     void Awake()
     {
@@ -63,6 +69,12 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         if (playerMana == null)
             Debug.LogWarning("[PlayerAttack] PlayerMana를 찾지 못함 → 마나 비용 없이 시전됩니다.", this);
 
+        if (_playerStats == null)
+            _playerStats = GetComponent<PlayerStats>();
+
+        if (_playerStats == null)
+            _playerStats = GetComponentInParent<PlayerStats>();
+
         if (float.IsNaN(_channelScaleInterval) || _channelScaleInterval < 0.05f)
             _channelScaleInterval = 1f;
     }
@@ -76,18 +88,25 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
 
     void Update()
     {
-        if (_isCharging && currentMagic != null && CastingBarController.Instance != null)
-        {
-            float heldTime = Time.time - _chargeStartTime;
-            CastingBarController.Instance.UpdateFill(this, heldTime, currentMagic.castingTime);
-        }
-
         if (_channelEffect != null)
             TickChannelScale();
     }
 
+    /// <inheritdoc />
+    public void InterruptByGate()
+    {
+        if (_isCharging)
+            CancelCharge();
+
+        if (_channelEffect != null)
+            StopChannelEffect();
+    }
+
     public void OnFireStarted(InputAction.CallbackContext context)
     {
+        if (IsDead)
+            return;
+
         if (!isActiveAndEnabled)
             return;
 
@@ -107,11 +126,16 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         if (magic == null)
             return;
 
-        if (!CanStartFire(magic))
+        string failReason;
+        if (!CanStartFire(magic, out failReason))
+        {
+            if (!string.IsNullOrEmpty(failReason))
+                GameNotice.Show(failReason);
             return;
+        }
 
-        if (_actionGate != null && _actionGate.Current == PlayerAction.Loading && !_actionGate.RequestRelease())
-            return;
+        if (_actionGate != null && _actionGate.Current == PlayerAction.Loading)
+            _actionGate.RequestRelease();
 
         currentMagic = magic;
         switch (currentMagic.Mode)
@@ -151,25 +175,26 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
 
     void BeginCharge()
     {
-        if (!CanCastCurrent() || !CanPayMana())
+        if (!CanCastCurrent(out _) || !CanPayMana())
             return;
 
-        if (!TryEnterAction(PlayerAction.Throwing))
+        if (!TryEnterThrowing(currentMagic.castingTime))
+        {
+            GameNotice.Show(NoticeText.Busy);
             return;
+        }
 
         _chargeReservedScale = false;
         if (currentMagic.ScaleCost > 0 && _scaleSpender != null && !_scaleSpender.TryBeginCast(currentMagic.ScaleCost))
         {
-            Debug.Log("사용 가능한 비늘이 없어 캐스팅할 수 없습니다.");
-            ExitAction(PlayerAction.Throwing);
+            GameNotice.Show(NoticeText.NotEnoughScales);
+            ExitThrowing();
             return;
         }
 
         _chargeReservedScale = currentMagic.ScaleCost > 0 && _scaleSpender != null;
         _isCharging = true;
         _chargeStartTime = Time.time;
-        if (CastingBarController.Instance != null)
-            CastingBarController.Instance.Show(this);
     }
 
     void EndCharge()
@@ -180,44 +205,74 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         _isCharging = false;
         try
         {
+            if (IsDead)
+            {
+                CancelChargeReservation();
+                return;
+            }
+
             float heldTime = Time.time - _chargeStartTime;
             if (currentMagic == null || heldTime < currentMagic.castingTime)
             {
-                Debug.Log("캐스팅 실패 (너무 빨리 뗌)");
                 CancelChargeReservation();
                 return;
             }
 
-            if (currentMagic != null && !currentMagic.CanCast(gameObject))
+            string castReason;
+            if (!currentMagic.CanCast(gameObject, out castReason))
+            {
+                if (!string.IsNullOrEmpty(castReason))
+                    GameNotice.Show(castReason);
+                CancelChargeReservation();
+                return;
+            }
+
+            if (!TryGetCastTarget(out Vector3 target))
             {
                 CancelChargeReservation();
                 return;
             }
 
-            // 비늘 소모를 먼저 확정한다. 확정에 실패하면 발사하지 않는다.
-            bool canFire = TryGetCastTarget(out Vector3 target) && CanPayMana();
-            if (canFire && !ConfirmChargeReservation())
+            if (!CanPayMana())
             {
-                Debug.Log("비늘 예약이 풀려 시전이 취소되었습니다.");
-                canFire = false;
+                GameNotice.Show(NoticeText.NotEnoughMana);
+                CancelChargeReservation();
+                return;
             }
 
-            if (canFire && TryPayMana())
-                currentMagic.Cast(gameObject, target);
-            else
+            bool scalesReady = _scaleSpender == null || !_chargeReservedScale || _scaleSpender.CanCompleteCast();
+            if (!scalesReady)
+            {
+                GameNotice.Show(NoticeText.NotEnoughScales);
                 CancelChargeReservation();
+                return;
+            }
+
+            if (!TryPayMana())
+            {
+                Debug.LogError("[PlayerAttack] 마나 확인 뒤에 지불에 실패했습니다.", this);
+                CancelChargeReservation();
+                return;
+            }
+
+            if (!ConfirmChargeReservation())
+            {
+                Debug.LogError("[PlayerAttack] 비늘 확인 뒤에 소모에 실패했습니다.", this);
+                CancelChargeReservation();
+                return;
+            }
+
+            currentMagic.Cast(gameObject, target);
         }
         finally
         {
-            if (CastingBarController.Instance != null)
-                CastingBarController.Instance.Hide(this);
-            ExitAction(PlayerAction.Throwing);
+            ExitThrowing();
         }
     }
 
     void BeginChannelCast()
     {
-        if (!CanCastCurrent() || !CanPayMana())
+        if (!CanCastCurrent(out _) || !CanPayMana())
             return;
 
         if (currentMagic is not ChannelMagicData channel)
@@ -226,26 +281,30 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
             return;
         }
 
-        if (!TryEnterAction(PlayerAction.Throwing))
-            return;
-
-        if (_scaleSpender == null || !_scaleSpender.TryConsumeNow(1))
+        if (!HasLoadedScales(1))
         {
-            Debug.Log("사용 가능한 비늘이 없어 채널링을 시작할 수 없습니다.");
-            ExitAction(PlayerAction.Throwing);
+            GameNotice.Show(NoticeText.NotEnoughScales);
             return;
         }
 
-        if (!TryPayMana())
+        if (!TryEnterThrowing(0f))
         {
-            ExitAction(PlayerAction.Throwing);
+            GameNotice.Show(NoticeText.Busy);
             return;
         }
 
         ChannelEffect effect = channel.BeginChannel(gameObject, raycaster);
         if (effect == null)
         {
-            ExitAction(PlayerAction.Throwing);
+            ExitThrowing();
+            return;
+        }
+
+        if (!TryPayMana() || _scaleSpender == null || !_scaleSpender.TryConsumeNow(1, !PlayerCostRules.IsFree))
+        {
+            Debug.LogError("[PlayerAttack] 확인 뒤에 비용 지불에 실패했습니다.", this);
+            effect.Stop();
+            ExitThrowing();
             return;
         }
 
@@ -265,32 +324,47 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
             return;
 
         _channelScaleTimer -= _channelScaleInterval;
-        if (_scaleSpender == null || _scaleSpender.TryConsumeNow(1))
+        if (_scaleSpender == null || _scaleSpender.TryConsumeNow(1, !PlayerCostRules.IsFree))
             return;
 
-        Debug.Log("비늘이 없어 채널링을 끝냅니다.");
+        GameNotice.Show(NoticeText.ScalesRanOut);
         EndChannel();
     }
 
     void CastInstant()
     {
-        if (!CanCastCurrent() || !CanPayMana())
+        if (!CanCastCurrent(out _) || !CanPayMana())
             return;
 
         if (!TryGetCastTarget(out Vector3 target))
             return;
 
         int cost = currentMagic.ScaleCost;
-        if (cost > 0 && (_scaleSpender == null || !_scaleSpender.TryConsumeNow(cost)))
+        if (!HasLoadedScales(cost))
         {
-            Debug.Log("사용 가능한 비늘이 없어 시전할 수 없습니다.");
+            GameNotice.Show(NoticeText.NotEnoughScales);
             return;
         }
 
         if (!TryPayMana())
+        {
+            Debug.LogError("[PlayerAttack] 마나 확인 뒤에 지불에 실패했습니다.", this);
             return;
+        }
+
+        if (cost > 0 && (_scaleSpender == null || !_scaleSpender.TryConsumeNow(cost, !PlayerCostRules.IsFree)))
+        {
+            Debug.LogError("[PlayerAttack] 비늘 확인 뒤에 소모에 실패했습니다.", this);
+            return;
+        }
 
         currentMagic.Cast(gameObject, target);
+    }
+
+    /// <inheritdoc />
+    public void ApplyDeathPenalty()
+    {
+        RestoreForHome();
     }
 
     /// <inheritdoc />
@@ -302,16 +376,14 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         if (_channelEffect != null)
             StopChannelEffect();
 
-        ExitAction(PlayerAction.Throwing);
+        ExitThrowing();
     }
 
     void CancelCharge()
     {
         _isCharging = false;
         CancelChargeReservation();
-        if (CastingBarController.Instance != null)
-            CastingBarController.Instance.Cancel(this);
-        ExitAction(PlayerAction.Throwing);
+        ExitThrowing();
     }
 
     /// <summary>차지 예약이 있으면 소모를 확정한다. 예약이 없으면(비용 0) true, 확정에 실패하면 false.</summary>
@@ -321,7 +393,7 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
             return true;
 
         _chargeReservedScale = false;
-        return _scaleSpender != null && _scaleSpender.CompleteCast();
+        return _scaleSpender != null && _scaleSpender.CompleteCast(!PlayerCostRules.IsFree);
     }
 
     void CancelChargeReservation()
@@ -342,21 +414,21 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
             return;
 
         effect.Stop();
-        ExitAction(PlayerAction.Throwing);
+        ExitThrowing();
     }
 
-    bool TryEnterAction(PlayerAction action)
+    bool TryEnterThrowing(float duration)
     {
         if (_actionGate == null)
             return true;
 
-        return _actionGate.TryEnter(action);
+        return _actionGate.TryEnter(PlayerAction.Throwing, this, duration);
     }
 
-    void ExitAction(PlayerAction action)
+    void ExitThrowing()
     {
         if (_actionGate != null)
-            _actionGate.Exit(action);
+            _actionGate.Exit(PlayerAction.Throwing, this);
     }
 
     bool TryGetCastTarget(out Vector3 target)
@@ -374,24 +446,26 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         return false;
     }
 
-    bool CanStartFire(MagicData magic)
+    bool CanStartFire(MagicData magic, out string failReason)
     {
+        failReason = null;
         if (magic == null)
             return false;
 
-        if (!magic.CanCast(gameObject))
+        string castReason;
+        if (!magic.CanCast(gameObject, out castReason))
         {
-            Debug.Log("[PlayerAttack] 지금은 이 마법을 쓸 수 없습니다.");
+            failReason = string.IsNullOrEmpty(castReason) ? NoticeText.CannotUseNow : castReason;
             return false;
         }
 
-        if (playerMana != null && !playerMana.CanAfford(magic.ManaCost))
+        if (!PlayerCostRules.IsFree && playerMana != null && !playerMana.CanAfford(magic.ManaCost))
         {
-            Debug.Log($"마나가 부족해 캐스팅할 수 없습니다. ({playerMana.CurrentMana}/{magic.ManaCost})");
+            failReason = NoticeText.NotEnoughMana;
             return false;
         }
 
-        int required = RequiredScales(magic);
+        int required = magic.RequiredScalesToStart;
         if (required > 0)
         {
             IScaleMagazine magazine = null;
@@ -401,7 +475,7 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
             int loaded = magazine != null ? magazine.LoadedCount : 0;
             if (loaded < required)
             {
-                Debug.Log("사용 가능한 비늘이 없어 캐스팅할 수 없습니다.");
+                failReason = NoticeText.NotEnoughScales;
                 return false;
             }
         }
@@ -409,40 +483,40 @@ public class PlayerAttack : MonoBehaviour, IHomeRestorable
         return true;
     }
 
-    static int RequiredScales(MagicData magic)
+    bool HasLoadedScales(int count)
     {
-        if (magic.Mode == CastMode.Channel)
-            return Mathf.Max(1, magic.ScaleCost);
+        if (count < 1)
+            return true;
 
-        return magic.ScaleCost;
+        if (_scaleSpender == null)
+            return false;
+
+        IScaleMagazine magazine = _scaleSpender.Magazine;
+        return magazine != null && magazine.LoadedCount >= count;
     }
 
-    bool CanCastCurrent()
+    bool CanCastCurrent(out string failReason)
     {
-        return currentMagic != null && currentMagic.CanCast(gameObject);
+        failReason = null;
+        if (currentMagic == null)
+            return false;
+
+        return currentMagic.CanCast(gameObject, out failReason);
     }
 
     bool CanPayMana()
     {
-        if (playerMana == null || currentMagic == null)
+        if (PlayerCostRules.IsFree || playerMana == null || currentMagic == null)
             return true;
 
-        if (playerMana.CanAfford(currentMagic.ManaCost))
-            return true;
-
-        Debug.Log($"마나가 부족해 캐스팅할 수 없습니다. ({playerMana.CurrentMana}/{currentMagic.ManaCost})");
-        return false;
+        return playerMana.CanAfford(currentMagic.ManaCost);
     }
 
     bool TryPayMana()
     {
-        if (playerMana == null || currentMagic == null)
+        if (PlayerCostRules.IsFree || playerMana == null || currentMagic == null)
             return true;
 
-        if (playerMana.TrySpendMana(currentMagic.ManaCost))
-            return true;
-
-        Debug.Log("마나가 부족해 시전이 취소되었습니다.");
-        return false;
+        return playerMana.TrySpendMana(currentMagic.ManaCost);
     }
 }

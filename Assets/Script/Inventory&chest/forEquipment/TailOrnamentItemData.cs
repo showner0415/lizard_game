@@ -21,7 +21,7 @@ public sealed class TailOrnamentItemData : EquipmentItemData
             return;
         }
 
-        if (_magic.Mode != CastMode.Channel && _magic.ScaleCost < 1)
+        if (_magic.RequiresScale && _magic.Mode != CastMode.Channel && _magic.ScaleCost < 1)
             Debug.LogWarning($"[TailOrnamentItemData] '{name}'의 마법 '{_magic.name}'은 비늘을 1개 이상 써야 합니다.", this);
     }
 }

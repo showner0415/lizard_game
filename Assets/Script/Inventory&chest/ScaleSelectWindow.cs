@@ -35,14 +35,19 @@ public sealed class ScaleSelectWindow : MonoBehaviour
     {
         WarnIfPanelInvalid();
         ResolveRefs();
-        UIManager.Instance?.RegisterScaleSelect(this);
+        RegisterSelf();
         Hide();
+    }
+
+    void OnEnable()
+    {
+        RegisterSelf();
     }
 
     void Start()
     {
         ResolveRefs();
-        UIManager.Instance?.RegisterScaleSelect(this);
+        RegisterSelf();
     }
 
     void OnDestroy()
@@ -69,7 +74,7 @@ public sealed class ScaleSelectWindow : MonoBehaviour
         ResolveRefs();
         if (_actionGate != null && _actionGate.IsBusy)
         {
-            Debug.Log("행동 중에는 비늘을 고를 수 없습니다.");
+            GameNotice.Show(NoticeText.Busy);
             return;
         }
 
@@ -86,6 +91,7 @@ public sealed class ScaleSelectWindow : MonoBehaviour
             return;
 
         ResolveRefs();
+        RegisterSelf();
         if (_scaleLoader == null || _content == null || _entryPrefab == null)
         {
             Debug.LogWarning("[ScaleSelectWindow] ScaleLoader, Content, 항목 프리팹 중 하나가 없습니다.", this);
@@ -109,10 +115,19 @@ public sealed class ScaleSelectWindow : MonoBehaviour
     /// <summary>같은 씬의 닫기 버튼이 호출한다.</summary>
     public void RequestClose()
     {
-        if (UIManager.Instance != null)
-            UIManager.Instance.CloseAll();
-        else
+        UIManager manager = UIManager.Instance;
+        if (manager != null)
+            manager.CloseAll();
+
+        if (IsOpen)
             Hide();
+    }
+
+    void RegisterSelf()
+    {
+        UIManager manager = UIManager.Instance;
+        if (manager != null)
+            manager.RegisterScaleSelect(this);
     }
 
     void Rebuild()
@@ -186,7 +201,7 @@ public sealed class ScaleSelectWindow : MonoBehaviour
 
         if (!_scaleLoader.TrySelect(item))
         {
-            Debug.Log("지금은 비늘을 바꿀 수 없습니다.");
+            GameNotice.Show(NoticeText.CannotChangeScale);
             return;
         }
 

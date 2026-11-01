@@ -40,8 +40,14 @@ public abstract class MagicData : ScriptableObject
     /// <summary>시전 1회당 소모 마나 (0 이상).</summary>
     public int ManaCost => manaCost;
 
-    /// <summary>시전 1회당 소모하는 비늘 수. 0이면 비늘을 쓰지 않는다. 채널링의 초당 소모와는 별개다.</summary>
-    public int ScaleCost => scaleCost < 0 ? 0 : scaleCost;
+    /// <summary>시전 1회당 소모하는 비늘 수. 비늘이 필요 없으면 0이다. 채널링의 초당 소모와는 별개다.</summary>
+    public int ScaleCost => RequiresScale ? Mathf.Max(0, scaleCost) : 0;
+
+    /// <summary>장전된 비늘이 있어야 쏠 수 있으면 true. 장전 장식은 false.</summary>
+    public virtual bool RequiresScale => true;
+
+    /// <summary>시전을 시작하려면 장전돼 있어야 하는 칸 수. 채널링은 최소 1이다.</summary>
+    public int RequiredScalesToStart => !RequiresScale ? 0 : (Mode == CastMode.Channel ? Mathf.Max(1, ScaleCost) : ScaleCost);
 
     /// <summary>이 마법을 어떻게 누르는지.</summary>
     public CastMode Mode => castMode;
@@ -71,8 +77,12 @@ public abstract class MagicData : ScriptableObject
         }
     }
 
-    /// <summary>이 시전자가 지금 이 마법을 쓸 수 있으면 true. 기본은 항상 가능하다.</summary>
-    public virtual bool CanCast(GameObject caster) => true;
+    /// <summary>이 시전자가 지금 이 마법을 쓸 수 있으면 true. 실패하면 <paramref name="failReason"/>에 이유를 담는다. 기본은 항상 가능하다.</summary>
+    public virtual bool CanCast(GameObject caster, out string failReason)
+    {
+        failReason = null;
+        return true;
+    }
 
     /// <summary>시전에 마우스 바닥 좌표가 필요하면 true. 없으면 시전자 위치로 대신할 수 있다.</summary>
     public virtual bool NeedsTargetPoint => true;

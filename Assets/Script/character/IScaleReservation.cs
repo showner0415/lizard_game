@@ -7,6 +7,9 @@ public interface IScaleReservation
     /// <summary>True until the reservation is confirmed or released. Reservations never expire on their own.</summary>
     bool IsActive { get; }
 
+    /// <summary>확정할 수 있으면 true. 상태를 바꾸지 않는다. 예약이 살아 있고, 칸이 그 토큰으로 Reserved일 때만 참이다.</summary>
+    bool CanConfirm { get; }
+
     /// <summary>The scale that was loaded in the reserved slot. Stays readable after confirm/release.</summary>
     ScaleData Scale { get; }
 

@@ -1082,6 +1082,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 798bfafa282db9147a5de0ea37e4947b, type: 2}
   - {fileID: 11400000, guid: fe450fe3c3dcb2a4a886db4c98d24620, type: 2}
   - {fileID: 11400000, guid: 79a10deef38109841a2b486c8cea3e94, type: 2}
+  - {fileID: 11400000, guid: 5e6d75e76baad5a42ac96b12e6f37bf1, type: 2}
   chestType: 1
 --- !u!1 &1100042522
 GameObject:

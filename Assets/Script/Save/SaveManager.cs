@@ -92,16 +92,18 @@ public class SaveManager : MonoBehaviour
     /// <summary>던전 입구. 현재 가방을 레이드 인벤으로 확정하고 저장.</summary>
     public void SaveOnEnterDungeon()
     {
-        if (InventoryController.Instance != null)
-            InventoryController.Instance.BeginRaid();
+        InventoryController inventory = InventoryController.Instance;
+        if (inventory != null)
+            inventory.BeginRaid();
         SaveGame();
     }
 
     /// <summary>탈출 성공. 들고 나온 인벤을 유지한 채 디스크에 확정.</summary>
     public void SaveOnExtract()
     {
-        if (InventoryController.Instance != null)
-            InventoryController.Instance.EndRaidExtract();
+        InventoryController inventory = InventoryController.Instance;
+        if (inventory != null)
+            inventory.EndRaidExtract();
         SaveGame();
     }
 

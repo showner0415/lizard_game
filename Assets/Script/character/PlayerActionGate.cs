@@ -18,58 +18,110 @@ public enum PlayerAction
 }
 
 /// <summary>
-/// 시간이 걸리는 행동을 한 곳에서 잠근다. 한 번에 하나의 행동만 들어간다.
+/// 시간이 걸리는 행동을 한 곳에서 잠근다. 진행도는 읽을 때 계산하고, Update는 쓰지 않는다.
 /// 사망 여부는 여기서 보지 않는다.
 /// </summary>
 public sealed class PlayerActionGate : MonoBehaviour, IHomeRestorable
 {
-    /// <summary>지금 진행 중인 행동.</summary>
-    public PlayerAction Current { get; private set; } = PlayerAction.None;
+    PlayerAction _current = PlayerAction.None;
+    IGateInterruptible _owner;
+    float _startTime;
+    float _duration;
+
+    /// <summary>지금 진행 중인 행동. 주인이 파괴됐으면 None.</summary>
+    public PlayerAction Current
+    {
+        get
+        {
+            ClearIfOwnerDead();
+            return _current;
+        }
+    }
 
     /// <summary>행동이 진행 중이면 true.</summary>
     public bool IsBusy => Current != PlayerAction.None;
 
-    /// <summary>진행 중인 행동이 없을 때만 <paramref name="action"/>으로 들어간다. None은 들어갈 수 없다.</summary>
-    public bool TryEnter(PlayerAction action)
+    /// <summary>시간이 있는 행동이면 true. 채널링과 즉시 시전은 시간이 0이다.</summary>
+    public bool HasTimedAction => IsBusy && _duration > 0f;
+
+    /// <summary>0부터 1까지. 시간이 없으면 0. 스케일된 시간이다.</summary>
+    public float Progress
     {
-        if (action == PlayerAction.None || Current != PlayerAction.None)
+        get
+        {
+            if (!HasTimedAction)
+                return 0f;
+
+            return Mathf.Clamp01((Time.time - _startTime) / _duration);
+        }
+    }
+
+    /// <summary>진행 중인 행동이 없을 때만 들어간다. None과 빈 주인은 거부한다.</summary>
+    public bool TryEnter(PlayerAction action, IGateInterruptible owner, float duration)
+    {
+        if (action == PlayerAction.None || owner == null || IsBusy)
             return false;
 
-        Current = action;
+        if (float.IsNaN(duration) || float.IsInfinity(duration) || duration < 0f)
+            duration = 0f;
+
+        _current = action;
+        _owner = owner;
+        _startTime = Time.time;
+        _duration = duration;
         return true;
     }
 
-    /// <summary>지금 행동이 <paramref name="action"/>일 때만 비운다. 다르면 무시한다.</summary>
-    public void Exit(PlayerAction action)
+    /// <summary>행동과 주인이 둘 다 지금 값과 같을 때만 비운다. 아니면 false이고 아무것도 하지 않는다.</summary>
+    public bool Exit(PlayerAction action, IGateInterruptible owner)
     {
-        if (Current != action)
-            return;
+        ClearIfOwnerDead();
+        if (_current != action || !ReferenceEquals(_owner, owner))
+            return false;
 
-        Current = PlayerAction.None;
+        ClearState();
+        return true;
     }
 
-    /// <summary>
-    /// 지금 행동을 끊기 직전에 그 행동을 알린다.
-    /// 그 행동의 주인이 정리하고 <see cref="Exit"/>까지 해야 None이 된다.
-    /// </summary>
-    public event Action<PlayerAction> ReleaseRequested;
-
-    /// <summary>
-    /// 진행 중인 행동의 주인에게 정리를 요청한다.
-    /// 이미 없거나, 주인이 빠져나가 None이 되면 true.
-    /// </summary>
-    public bool RequestRelease()
+    /// <summary>지금 주인을 끊는다. 상태를 먼저 비운 뒤 주인에게 알린다.</summary>
+    public void RequestRelease()
     {
-        if (Current == PlayerAction.None)
-            return true;
+        ClearIfOwnerDead();
+        if (_current == PlayerAction.None)
+            return;
 
-        ReleaseRequested?.Invoke(Current);
-        return Current == PlayerAction.None;
+        IGateInterruptible owner = _owner;
+        ClearState();
+        if (owner == null)
+            return;
+
+        try
+        {
+            owner.InterruptByGate();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
     }
 
     /// <inheritdoc />
     public void RestoreForHome()
     {
-        Current = PlayerAction.None;
+        ClearState();
+    }
+
+    void ClearIfOwnerDead()
+    {
+        if (_owner is UnityEngine.Object unityOwner && unityOwner == null)
+            ClearState();
+    }
+
+    void ClearState()
+    {
+        _current = PlayerAction.None;
+        _owner = null;
+        _startTime = 0f;
+        _duration = 0f;
     }
 }

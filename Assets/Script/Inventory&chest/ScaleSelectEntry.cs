@@ -5,9 +5,9 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// 비늘 선택 창의 항목 하나. 클릭은 버튼이, 툴팁은 포인터가 담당한다.
+/// 비늘 선택 창의 항목 하나. 클릭과 툴팁은 루트 Image의 포인터 이벤트로 받는다.
 /// </summary>
-public sealed class ScaleSelectEntry : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IItemTooltipSource
+public sealed class ScaleSelectEntry : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IItemTooltipSource
 {
     [SerializeField, Tooltip("ScaleData.Icon을 그린다.")]
     Image _icon;
@@ -18,11 +18,11 @@ public sealed class ScaleSelectEntry : MonoBehaviour, IPointerEnterHandler, IPoi
     [SerializeField, Tooltip("파밍 비늘 수량. 기본 비늘 항목에서는 숨긴다.")]
     TMP_Text _count;
 
-    [SerializeField, Tooltip("항목 클릭. 비우면 이 오브젝트에서 찾는다.")]
-    Button _button;
-
     [SerializeField, Tooltip("선택된 항목만 켠다. 비워도 배경색으로 구분한다.")]
     GameObject _selectedMark;
+
+    [SerializeField, Tooltip("마우스가 올라가 있는 동안만 켠다. 없어도 된다.")]
+    GameObject _hoverMark;
 
     [SerializeField, Tooltip("선택 여부에 따라 색을 바꾼다. 비우면 색은 바꾸지 않는다.")]
     Image _background;
@@ -39,12 +39,20 @@ public sealed class ScaleSelectEntry : MonoBehaviour, IPointerEnterHandler, IPoi
     /// <inheritdoc />
     public ItemData TooltipItem => _item;
 
+    void Awake()
+    {
+        Graphic graphic = GetComponent<Graphic>();
+        if (graphic == null || !graphic.raycastTarget)
+            Debug.LogWarning("[ScaleSelectEntry] 루트에 Raycast Target이 켜진 Image가 없어 클릭을 받을 수 없습니다.", this);
+    }
+
     /// <summary>이 항목이 보여줄 비늘과 클릭 동작을 넣는다. 기본 비늘이면 <paramref name="item"/>은 null.</summary>
     public void Bind(ScaleData scale, ScaleItemData item, int count, bool showCount, bool selected, Action onClick)
     {
         _item = item;
         _bound = true;
         _onClick = onClick;
+        SetHoverMark(false);
 
         if (_icon != null)
         {
@@ -75,15 +83,16 @@ public sealed class ScaleSelectEntry : MonoBehaviour, IPointerEnterHandler, IPoi
 
             _background.color = selected ? _selectedColor : _normalColor;
         }
+    }
 
-        if (_button == null)
-            _button = GetComponent<Button>();
+    /// <inheritdoc />
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (!_bound || eventData.button != PointerEventData.InputButton.Left)
+            return;
 
-        if (_button != null)
-        {
-            _button.onClick.RemoveListener(HandleClick);
-            _button.onClick.AddListener(HandleClick);
-        }
+        if (_onClick != null)
+            _onClick.Invoke();
     }
 
     /// <inheritdoc />
@@ -92,27 +101,26 @@ public sealed class ScaleSelectEntry : MonoBehaviour, IPointerEnterHandler, IPoi
         if (!_bound)
             return;
 
+        SetHoverMark(true);
         ItemTooltip.SetHover(this);
     }
 
     /// <inheritdoc />
     public void OnPointerExit(PointerEventData eventData)
     {
+        SetHoverMark(false);
         ItemTooltip.ClearHover(this);
     }
 
     void OnDisable()
     {
+        SetHoverMark(false);
         ItemTooltip.ClearHover(this);
-        if (_button != null)
-            _button.onClick.RemoveListener(HandleClick);
     }
 
-    void HandleClick()
+    void SetHoverMark(bool visible)
     {
-        if (!_bound)
-            return;
-
-        _onClick?.Invoke();
+        if (_hoverMark != null)
+            _hoverMark.SetActive(visible);
     }
 }

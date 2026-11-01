@@ -79,11 +79,7 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
             return false;
         }
 
-        if (!TrySetState(ScaleSlotState.Grown))
-            return false;
-
-        ApplyPresentation();
-        return true;
+        return TrySetState(ScaleSlotState.Grown);
     }
 
     /// <inheritdoc />
@@ -108,7 +104,6 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
             return false;
         }
 
-        ApplyPresentation();
         return true;
     }
 
@@ -129,8 +124,13 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
             return false;
         }
 
-        ApplyPresentation();
         return true;
+    }
+
+    /// <summary>이 토큰으로 Reserved이면 true. 상태를 바꾸지 않는다.</summary>
+    internal bool IsReservedBy(int token)
+    {
+        return token != 0 && _state == ScaleSlotState.Reserved && token == _currentToken;
     }
 
     /// <inheritdoc />
@@ -160,7 +160,6 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
         _currentToken = 0;
         _scale = null;
         TrySetState(ScaleSlotState.Empty);
-        ApplyPresentation();
         OnScaleConsumed?.Invoke(this);
         return true;
     }
@@ -200,6 +199,7 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
 
         ScaleSlotState previous = _state;
         _state = next;
+        ApplyPresentation();
         StateChanged?.Invoke(this, previous, next);
         return true;
     }

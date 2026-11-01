@@ -143,7 +143,7 @@ public sealed class EquipmentPresenter : MonoBehaviour
             ScaleData scale = _magazine.CurrentScale;
             if (scale != null)
                 icon = scale.Icon;
-            count = _magazine.LoadedCount + _magazine.ReservedCount;
+            count = _magazine.HeldCount();
         }
 
         _views[index].RenderLoadedScale(icon, count);

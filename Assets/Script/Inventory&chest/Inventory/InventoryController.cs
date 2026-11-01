@@ -23,6 +23,9 @@ public class InventoryController : MonoBehaviour
 
     private bool inRaid;
 
+    /// <summary>레이드 중이면 true. 거점이면 false.</summary>
+    public bool InRaid => inRaid;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -37,6 +40,12 @@ public class InventoryController : MonoBehaviour
         Stash = new InventoryModel(defaultStashSlots);
         Stash.OnWarning += HandleInventoryWarning;
         Equipment = new EquipmentModel();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     private void HandleInventoryWarning(string message)
@@ -56,11 +65,12 @@ public class InventoryController : MonoBehaviour
     /// <summary>PlayerInput의 Inventory 액션. 창을 여닫는 판단은 UIManager가 한다.</summary>
     public void OnInventory(InputAction.CallbackContext context)
     {
-        Debug.Log("[Tab] 입력 받음");
         if (!context.performed)
             return;
 
-        UIManager.Instance?.Toggle();
+        UIManager manager = UIManager.Instance;
+        if (manager != null)
+            manager.Toggle();
     }
 
     //====================================================

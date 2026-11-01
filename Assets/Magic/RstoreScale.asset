@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 06e4f0669c33658439e77c10c1a01e84, type: 3}
-  m_Name: RestoreTailsMagic
+  m_Name: RstoreScale
   m_EditorClassIdentifier: Assembly-CSharp::RestoreTailsMagicData
   isDarkMagic: 0
   castMode: 0

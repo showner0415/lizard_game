@@ -1,52 +1,31 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 
 /*
- * SCALE-SPENDING - SUMMARY
+ * 비늘 소모 요약
  *
- * Reservation lifecycle
- *   TryBeginCast(n)  -> reserves n Loaded slots (front first). Fails => the spend does not start. Nothing is visible yet.
- *   CompleteCast()   -> reservation.Confirm(): the slot becomes Empty and the magazine regrows it in order.
- *   TryConsumeNow(n) -> reserves n Loaded slots and confirms them immediately. Used by channeling's per-second cost.
- *                       Charge casts still consume only in CompleteCast.
- *   CancelCast()     -> reservation.Release(): the slot returns to Loaded with its scale kept.
- *                       Also runs when this component is disabled/destroyed mid-cast.
- *   CompleteCast() is all-or-nothing and returns true only when the scales were consumed: confirm first, then fire.
- *   There is no reservation timeout; this component releases its reservations in OnDisable.
- *   Grown slots are never reserved: they must be loaded first (ScaleLoader).
+ * 탄창은 Awake에서 한 번 찾는다. 다른 시스템은 ScaleSpender.Magazine 또는 FindMagazineFor만 쓴다.
+ * 예약은 타임아웃이 없다. 이 컴포넌트가 OnDisable에서 푼다.
  *
- * Scale slot state machine (owned by ScaleSlot, driven by ScaleMagazine)
- *   Empty -> Grown -> Loaded -> Reserved -> Empty
- *               ^        |          |
- *               +-Unload-+          +- Release() returns to Loaded
- *   Unload drops the scale. Home restore does not unload; only the death penalty does.
- *   Confirm/Release outside Reserved, or with a stale token, are no-ops that warn and return false.
- *
- * Time semantics
- *   Everything uses scaled time (Time.time / WaitForSeconds): pausing with Time.timeScale = 0 pauses casts,
- *   and regrowth together. Regrowth deadlines are absolute timestamps, so disabling/re-enabling a component
- *   never loses them.
- *
- * Observer wiring without a direct dependency
- *   ScaleSpender references only IScaleMagazine / IScaleReservation (resolved once in Awake). ScaleMagazine
- *   implements IScaleMagazine, observes each ScaleSlot's StateChanged event (subscribed in OnEnable, unsubscribed in
- *   OnDisable) and republishes it as IScaleMagazine.SlotsChanged for UI/AI. ScaleSpender itself publishes
- *   OnScaleSpendStarted / Completed / Cancelled.
+ * TryBeginCast(n)  장전된 칸을 앞에서부터 n개 예약한다. 실패하면 시전을 시작하지 않고 잡은 것을 되돌린다.
+ * CanCompleteCast  시전 중이고 예약이 전부 확정 가능하면 true. 비용 0(예약 없음)도 true. 상태를 바꾸지 않는다.
+ * CompleteCast     먼저 전부 CanConfirm인지 본다. 아니면 풀어 되돌리고 Cancelled.
+ *                  consume이 false면 풀어 되돌리고 Completed(Consumed false).
+ *                  true면 전부 확정하고 Completed(Consumed true). 확정이 여기서 실패하면 버그라 오류 로그를 남긴다.
+ * TryConsumeNow    consume이 false면 장전 수만 본다. true면 전부 예약한 뒤 CanConfirm을 보고, 통과한 것만 확정한다.
+ * CancelCast       예약을 풀고 Cancelled.
  */
 
 /// <summary>
-/// Cast timing and scale-reservation transaction for one caster. Depends only on <see cref="IScaleMagazine"/>.
+/// 한 시전자의 비늘 예약. <see cref="IScaleMagazine"/>만 알고, 플레이어는 모른다.
 /// <para>
-/// Two ways to drive it: hold-to-cast systems call <see cref="TryBeginCast()"/> then <see cref="CompleteCast"/> /
-/// <see cref="CancelCast"/>; fixed-duration casts call <see cref="TryBeginTimedCast"/>.
+/// 누르고 있는 시전은 <see cref="TryBeginCast(int)"/> 다음에 <see cref="CompleteCast"/> 또는 <see cref="CancelCast"/>를 부른다.
 /// </para>
 /// <para>
-/// Magazine wiring: assign any component implementing <see cref="IScaleMagazine"/> to <c>_magazineSource</c>
-/// (Unity cannot serialize interfaces), or call <see cref="SetMagazine"/> for manual/DI wiring. If the field is
-/// empty, a magazine on this object or its parents is used.
+/// 탄창은 <c>_magazineSource</c>에 연결한다. 인터페이스는 직렬화되지 않으므로 컴포넌트를 넣는다.
+/// 비우면 이 오브젝트와 부모에서 찾고, <see cref="SetMagazine"/>으로 직접 넣을 수도 있다.
 /// </para>
 /// </summary>
 public sealed class ScaleSpender : MonoBehaviour
@@ -56,27 +35,21 @@ public sealed class ScaleSpender : MonoBehaviour
     [FormerlySerializedAs("_tailProviderSource")]
     [SerializeField] private MonoBehaviour _magazineSource;
 
-    [Header("Timing")]
-    [Tooltip("Shortest accepted duration (seconds, scaled time) for timed casts.")]
-    [SerializeField, Min(0.01f)] private float _minTimedCastDuration = 0.05f;
-
     private IScaleMagazine _magazine;
     private readonly List<IScaleReservation> _reservations = new List<IScaleReservation>();
-    private Coroutine _timedCastRoutine;
+    private readonly List<IScaleReservation> _snapshot = new List<IScaleReservation>();
+    private readonly List<IScaleReservation> _held = new List<IScaleReservation>();
     private bool _isCasting;
     private float _castStartTime;
 
     /// <summary>Raised when a spend begins (a scale is reserved but not yet consumed).</summary>
     public event Action<ScaleSpendEventArgs> OnScaleSpendStarted;
 
-    /// <summary>Raised once when a spend finishes and its scale has been consumed.</summary>
+    /// <summary>소모가 허용되면 한 번 발생한다. 비늘이 빠졌는지는 <see cref="ScaleSpendEventArgs.Consumed"/>.</summary>
     public event Action<ScaleSpendEventArgs> OnScaleSpendCompleted;
 
-    /// <summary>Raised once when a spend is cancelled/interrupted and its reservation released.</summary>
+    /// <summary>확정 전에 예약이 풀려 소모를 거절하면 한 번 발생한다.</summary>
     public event Action<ScaleSpendEventArgs> OnScaleSpendCancelled;
-
-    /// <summary>True between a successful begin and its complete/cancel.</summary>
-    public bool IsCasting => _isCasting;
 
     /// <summary>Awake에서 찾은 비늘 탄창. 아직 없으면 그 시점에 한 번 더 찾는다.</summary>
     public IScaleMagazine Magazine
@@ -116,10 +89,22 @@ public sealed class ScaleSpender : MonoBehaviour
         _magazine = magazine;
     }
 
-    /// <summary>장전된 비늘 1개를 예약하고 시전을 시작한다. <see cref="TryBeginCast(int)"/>.</summary>
-    public bool TryBeginCast()
+    /// <summary>
+    /// 시전자에게서 탄창을 찾는다. 부모의 <see cref="ScaleSpender"/>를 먼저 보고, 없으면 자식을 본다.
+    /// </summary>
+    public static IScaleMagazine FindMagazineFor(GameObject caster)
     {
-        return TryBeginCast(1);
+        if (caster == null)
+            return null;
+
+        ScaleSpender spender = caster.GetComponentInParent<ScaleSpender>();
+        if (spender == null)
+            spender = caster.GetComponentInChildren<ScaleSpender>(true);
+
+        if (spender == null)
+            return null;
+
+        return spender.Magazine;
     }
 
     /// <summary>
@@ -145,19 +130,28 @@ public sealed class ScaleSpender : MonoBehaviour
             return true;
         }
 
-        if (_magazine == null)
+        IScaleMagazine magazine = Magazine;
+        if (magazine == null)
             return false;
 
-        for (int i = 0; i < scaleCount; i++)
+        magazine.BeginBatch();
+        try
         {
-            if (_magazine.TryReserveScale(out IScaleReservation reservation) && reservation != null)
+            for (int i = 0; i < scaleCount; i++)
             {
-                _reservations.Add(reservation);
-                continue;
-            }
+                if (magazine.TryReserveScale(out IScaleReservation reservation) && reservation != null)
+                {
+                    _reservations.Add(reservation);
+                    continue;
+                }
 
-            ReleaseReservations();
-            return false;
+                ReleaseReservations();
+                return false;
+            }
+        }
+        finally
+        {
+            magazine.EndBatch();
         }
 
         _isCasting = true;
@@ -169,98 +163,136 @@ public sealed class ScaleSpender : MonoBehaviour
     /// <summary>
     /// 장전된 비늘을 <paramref name="count"/>개 예약하고 바로 확정한다. 채널링이 초마다 쓰는 소모다.
     /// 하나라도 예약에 실패하면 이번에 잡은 것은 전부 되돌리고 false.
+    /// <paramref name="consume"/>이 false면 예약하지 않고, 장전된 칸이 충분한지만 본다.
     /// </summary>
-    public bool TryConsumeNow(int count)
+    public bool TryConsumeNow(int count, bool consume = true)
     {
-        if (_magazine == null || count < 1)
+        IScaleMagazine magazine = Magazine;
+        if (!consume)
+            return magazine != null && magazine.LoadedCount >= count;
+
+        if (magazine == null || count < 1)
             return false;
 
-        var held = new List<IScaleReservation>(count);
-        for (int i = 0; i < count; i++)
+        magazine.BeginBatch();
+        try
         {
-            if (_magazine.TryReserveScale(out IScaleReservation reservation) && reservation != null)
+            _held.Clear();
+            for (int i = 0; i < count; i++)
             {
-                held.Add(reservation);
-                continue;
+                if (magazine.TryReserveScale(out IScaleReservation reservation) && reservation != null)
+                {
+                    _held.Add(reservation);
+                    continue;
+                }
+
+                ReleaseActive(_held);
+                _held.Clear();
+                return false;
             }
 
-            for (int j = 0; j < held.Count; j++)
+            for (int i = 0; i < _held.Count; i++)
             {
-                if (held[j] != null && held[j].IsActive)
-                    held[j].Release();
+                if (_held[i] != null && _held[i].CanConfirm)
+                    continue;
+
+                ReleaseActive(_held);
+                _held.Clear();
+                return false;
             }
 
-            return false;
-        }
+            bool confirmed = true;
+            for (int i = 0; i < _held.Count; i++)
+            {
+                if (_held[i] != null && _held[i].Confirm())
+                    continue;
 
-        bool confirmed = true;
-        for (int i = 0; i < held.Count; i++)
-        {
-            if (held[i] == null || !held[i].Confirm())
                 confirmed = false;
+                Debug.LogError("[ScaleSpender] 확인할 수 있던 예약의 확정이 실패했습니다.", this);
+            }
+
+            _held.Clear();
+            return confirmed;
         }
-
-        return confirmed;
-    }
-
-    /// <summary>
-    /// Begins a cast that completes automatically after <paramref name="durationSeconds"/> (scaled time).
-    /// Durations below the configured minimum, or non-finite, are clamped with a warning.
-    /// </summary>
-    public bool TryBeginTimedCast(float durationSeconds)
-    {
-        if (float.IsNaN(durationSeconds) || float.IsInfinity(durationSeconds) || durationSeconds < _minTimedCastDuration)
+        finally
         {
-            Debug.LogWarning($"[ScaleSpender] Invalid cast duration ({durationSeconds}); using {_minTimedCastDuration}s.", this);
-            durationSeconds = _minTimedCastDuration;
+            magazine.EndBatch();
         }
-
-        if (!TryBeginCast())
-            return false;
-
-        _timedCastRoutine = StartCoroutine(TimedCastRoutine(durationSeconds));
-        return true;
     }
 
-    /// <summary>
-    /// Finishes the cast: confirms every reservation (scales consumed) and raises <see cref="OnScaleSpendCompleted"/> once.
-    /// Returns true only when the scales were actually consumed; callers must fire only on true.
-    /// If any reservation is no longer active, nothing is consumed, the rest are released,
-    /// <see cref="OnScaleSpendCancelled"/> is raised and false is returned. Also false if no cast is in progress.
-    /// </summary>
-    public bool CompleteCast()
+    /// <summary>시전 중이고 예약이 전부 확정 가능하면 true. 예약이 없는 시전도 true. 상태를 바꾸지 않는다.</summary>
+    public bool CanCompleteCast()
     {
         if (!_isCasting)
             return false;
 
-        List<IScaleReservation> reservations = CopyReservations();
+        for (int i = 0; i < _reservations.Count; i++)
+        {
+            IScaleReservation reservation = _reservations[i];
+            if (reservation == null || !reservation.CanConfirm)
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 예약을 끝낸다. <paramref name="consume"/>이 true면 확정하고, false면 전부 풀어 장전 상태로 되돌린다.
+    /// 하나라도 이미 풀려 있으면 나머지는 풀어 되돌리고 <see cref="OnScaleSpendCancelled"/>를 올린 뒤 false.
+    /// 시전 중이 아니면 false.
+    /// </summary>
+    public bool CompleteCast(bool consume = true)
+    {
+        if (!_isCasting)
+            return false;
+
+        CopyReservations(_snapshot);
         float elapsed = Time.time - _castStartTime;
         EndCastState();
 
-        // All-or-nothing: a partially released spend must not consume the remaining scales.
-        for (int i = 0; i < reservations.Count; i++)
+        IScaleMagazine magazine = Magazine;
+        if (magazine != null)
+            magazine.BeginBatch();
+
+        try
         {
-            if (reservations[i] != null && reservations[i].IsActive)
-                continue;
+            for (int i = 0; i < _snapshot.Count; i++)
+            {
+                IScaleReservation reservation = _snapshot[i];
+                if (reservation != null && reservation.CanConfirm)
+                    continue;
 
-            Debug.LogWarning("[ScaleSpender] Cast could not complete: a scale reservation was already released.", this);
-            ReleaseActive(reservations);
-            OnScaleSpendCancelled?.Invoke(new ScaleSpendEventArgs(elapsed, false));
-            return false;
+                Debug.LogWarning("[ScaleSpender] 확정할 수 없는 예약이 있어 시전을 취소합니다.", this);
+                ReleaseActive(_snapshot);
+                OnScaleSpendCancelled?.Invoke(new ScaleSpendEventArgs(elapsed, false));
+                return false;
+            }
+
+            if (!consume)
+            {
+                ReleaseActive(_snapshot);
+                OnScaleSpendCompleted?.Invoke(new ScaleSpendEventArgs(elapsed, false));
+                return true;
+            }
+
+            bool confirmed = true;
+            for (int i = 0; i < _snapshot.Count; i++)
+            {
+                if (_snapshot[i] != null && _snapshot[i].Confirm())
+                    continue;
+
+                confirmed = false;
+                Debug.LogError("[ScaleSpender] 확인할 수 있던 예약의 확정이 실패했습니다.", this);
+            }
+
+            OnScaleSpendCompleted?.Invoke(new ScaleSpendEventArgs(elapsed, true));
+            return confirmed;
         }
-
-        bool consumed = true;
-        for (int i = 0; i < reservations.Count; i++)
+        finally
         {
-            if (!reservations[i].Confirm())
-                consumed = false;
+            if (magazine != null)
+                magazine.EndBatch();
         }
-
-        if (!consumed)
-            Debug.LogWarning("[ScaleSpender] Cast completed but a scale reservation could not be confirmed.", this);
-
-        OnScaleSpendCompleted?.Invoke(new ScaleSpendEventArgs(elapsed, consumed));
-        return consumed;
     }
 
     /// <summary>
@@ -272,38 +304,38 @@ public sealed class ScaleSpender : MonoBehaviour
         if (!_isCasting)
             return false;
 
-        List<IScaleReservation> reservations = CopyReservations();
+        CopyReservations(_snapshot);
         float elapsed = Time.time - _castStartTime;
         EndCastState();
-        ReleaseActive(reservations);
+        IScaleMagazine magazine = Magazine;
+        if (magazine != null)
+            magazine.BeginBatch();
+        try
+        {
+            ReleaseActive(_snapshot);
+        }
+        finally
+        {
+            if (magazine != null)
+                magazine.EndBatch();
+        }
 
         OnScaleSpendCancelled?.Invoke(new ScaleSpendEventArgs(elapsed, false));
         return true;
     }
 
-    private IEnumerator TimedCastRoutine(float durationSeconds)
-    {
-        yield return new WaitForSeconds(durationSeconds);
-        _timedCastRoutine = null;
-        CompleteCast();
-    }
-
-    /// <summary>Clears cast state before any event/confirm so handlers may safely start a new cast.</summary>
+    /// <summary>이벤트보다 먼저 시전 상태를 지워서, 구독자가 바로 다음 시전을 시작해도 된다.</summary>
     private void EndCastState()
     {
         _isCasting = false;
         _reservations.Clear();
-
-        if (_timedCastRoutine != null)
-        {
-            StopCoroutine(_timedCastRoutine);
-            _timedCastRoutine = null;
-        }
     }
 
-    List<IScaleReservation> CopyReservations()
+    void CopyReservations(List<IScaleReservation> target)
     {
-        return new List<IScaleReservation>(_reservations);
+        target.Clear();
+        for (int i = 0; i < _reservations.Count; i++)
+            target.Add(_reservations[i]);
     }
 
     void ReleaseReservations()

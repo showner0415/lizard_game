@@ -1,76 +1,72 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// 행동 잠금의 시간 있는 행동을 막대로 보여 준다. 켜고 끄는 주인은 없다.
+/// 막대 오브젝트는 끄지 않는다. 안 보일 때는 알파만 0이다.
+/// </summary>
 public class CastingBarController : MonoBehaviour
 {
-    public static CastingBarController Instance { get; private set; }
-
-    object _owner;
+    [SerializeField, Tooltip("진행도를 읽을 행동 잠금. 비우면 PlayerRoot 아래에서 찾는다.")]
+    PlayerActionGate _gate;
 
     [Header("UI References")]
-    public GameObject barContainer; // CastingBar_BG ������Ʈ�� ���� (��ü UI On/Off��)
-    public Image fillImage;         // CastingBar_Fill ������Ʈ�� ����
+    public GameObject barContainer;
+    public Image fillImage;
 
-    private void Awake()
+    CanvasGroup _group;
+    bool _shown;
+    bool _warnedMissingGate;
+
+    void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-
-        _owner = null;
-        if (barContainer != null)
-            barContainer.SetActive(false);
-    }
-
-    /// <summary>바를 켠다. 겹침은 행동 잠금이 막으므로 마지막 호출이 주인이 된다.</summary>
-    public void Show(object owner)
-    {
-        if (owner == null || barContainer == null || fillImage == null)
+        if (barContainer == null)
             return;
 
-        _owner = owner;
         barContainer.SetActive(true);
-        fillImage.fillAmount = 0f;
+        _group = barContainer.GetComponent<CanvasGroup>();
+        if (_group == null)
+            _group = barContainer.AddComponent<CanvasGroup>();
+
+        _group.alpha = 0f;
+        _group.blocksRaycasts = false;
+        _group.interactable = false;
+        _shown = false;
     }
 
-    /// <summary>이 주인의 바만 채운다.</summary>
-    public void UpdateFill(object owner, float currentHeldTime, float requiredCastingTime)
+    void LateUpdate()
     {
-        if (!IsOwner(owner) || barContainer == null || !barContainer.activeSelf || fillImage == null)
+        if (_gate == null)
+            ResolveGate();
+
+        bool show = _gate != null && _gate.HasTimedAction;
+        if (_group != null && show != _shown)
+        {
+            _shown = show;
+            _group.alpha = show ? 1f : 0f;
+        }
+
+        if (!show || fillImage == null || _gate == null)
             return;
 
-        float fillRatio = requiredCastingTime > 0f ? currentHeldTime / requiredCastingTime : 1f;
-        fillImage.fillAmount = Mathf.Clamp01(fillRatio);
+        float progress = _gate.Progress;
+        if (Mathf.Abs(progress - fillImage.fillAmount) > 0.001f)
+            fillImage.fillAmount = progress;
     }
 
-    /// <summary>이 주인이 켠 바만 끈다. 다른 주인의 바는 그대로 둔다.</summary>
-    public void Hide(object owner)
+    void ResolveGate()
     {
-        if (!IsOwner(owner))
+        if (_gate != null)
             return;
 
-        _owner = null;
-        if (barContainer != null)
-            barContainer.SetActive(false);
-    }
+        if (PlayerRoot.Instance == null)
+            return;
 
-    /// <summary>파괴된 Unity 오브젝트는 주인이 없는 것으로 본다.</summary>
-    bool IsOwner(object owner)
-    {
-        if (_owner is Object unityOwner && unityOwner == null)
-            _owner = null;
+        _gate = PlayerRoot.Instance.GetComponentInChildren<PlayerActionGate>(true);
+        if (_gate != null || _warnedMissingGate)
+            return;
 
-        return owner != null && ReferenceEquals(_owner, owner);
-    }
-
-    /// <summary>이 주인이 켠 바를 취소한다.</summary>
-    public void Cancel(object owner)
-    {
-        Hide(owner);
+        _warnedMissingGate = true;
+        Debug.LogWarning("[CastingBarController] PlayerActionGate를 찾지 못했습니다.", this);
     }
 }

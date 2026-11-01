@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -9,17 +10,14 @@ using UnityEngine.InputSystem;
 /// 마나는 장전이 끝나는 순간에만 지불하고 환불하지 않는다. 끝나기 전에 취소되면 비용이 없다.
 /// 탄창(<see cref="IScaleMagazine"/>)은 플레이어, 인벤토리, 마나를 모르므로 이런 규칙은 전부 여기에 둔다.
 /// 선택은 비늘 데이터가 아니라 아이템으로 구분한다. 같은 데이터라도 아이템이 다르면 장전된 칸을 비우고 바꾼다.
-/// 기본 비늘은 <see cref="_defaultScale"/> 하나이며 해제하면 버린다. 파밍 비늘은 인벤토리로 돌아가고 넘치면 바닥에 떨어진다.
+/// 직전 선택이 없으면 기본 비늘이라 해제해도 버리고, 선택이 있으면 그 아이템으로 되돌린다. 넘치면 바닥에 떨어진다.
 /// 장전 중이거나 예약된 칸이 있으면 선택을 바꾸지 않는다.
 /// </para>
 /// </summary>
-public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
+public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty, IInstantScaleLoader, IGateInterruptible
 {
     [Header("Magazine")]
-    [Tooltip("IScaleMagazine을 구현한 컴포넌트(예: 캐릭터 루트의 ScaleMagazine). 비우면 ScaleSpender.Magazine, 그다음 이 오브젝트와 부모에서 찾는다.")]
-    [SerializeField] private MonoBehaviour _magazineSource;
-
-    [Tooltip("탄창을 직접 지정하지 않았을 때 Magazine을 빌려 올 ScaleSpender. 비우면 이 오브젝트와 부모에서 찾는다.")]
+    [Tooltip("탄창을 가진 ScaleSpender. 비우면 이 오브젝트와 부모에서 찾는다.")]
     [SerializeField] private ScaleSpender _scaleSpender;
 
     [Header("Player")]
@@ -43,12 +41,12 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
     [Tooltip("컨텍스트 메뉴 Select Debug Item이 고르는 파밍 비늘. 플레이 모드에서만 동작한다.")]
     [SerializeField] private ScaleItemData _debugSelectItem;
 
-    private IScaleMagazine _magazine;
     private Coroutine _loadRoutine;
     private bool _isLoading;
     private ScaleData _selectedScale;
     private ScaleItemData _selectedItem;
     private bool _selectionRestored;
+    private bool _warnedMissingSpender;
 
     /// <summary>지금 장전 중이면 true.</summary>
     public bool IsLoading => _isLoading;
@@ -62,28 +60,39 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
     /// <summary>선택한 파밍 비늘 아이템. 기본 비늘이면 null.</summary>
     public ScaleItemData SelectedItem => _selectedItem;
 
+    /// <summary>선택한 비늘 아이템이 바뀔 때 발생한다.</summary>
+    public event System.Action SelectionChanged;
+
     /// <summary>목록 첫 항목으로 쓰는 기본 비늘. 지금 선택과 다를 수 있다.</summary>
     public ScaleData DefaultScale => _defaultScale;
 
-    /// <summary>장전에 쓰는 탄창. 아직 없으면 그 시점에 한 번 더 찾는다.</summary>
+    /// <summary>장전에 쓰는 탄창. ScaleSpender가 찾은 것을 그대로 쓴다.</summary>
     public IScaleMagazine Magazine
     {
         get
         {
-            if (_magazine == null)
-                ResolveMagazine();
+            if (_scaleSpender == null)
+                _scaleSpender = GetComponentInParent<ScaleSpender>();
 
-            return _magazine;
+            if (_scaleSpender == null)
+            {
+                if (!_warnedMissingSpender)
+                {
+                    _warnedMissingSpender = true;
+                    Debug.LogWarning("[ScaleLoader] ScaleSpender가 없어 탄창을 찾지 못했습니다.", this);
+                }
+
+                return null;
+            }
+
+            return _scaleSpender.Magazine;
         }
     }
 
     private void Awake()
     {
         if (!_selectionRestored)
-        {
-            _selectedScale = _defaultScale;
-            _selectedItem = null;
-        }
+            SetSelection(null, false);
 
         if (_scaleSpender == null)
             _scaleSpender = GetComponentInParent<ScaleSpender>();
@@ -119,36 +128,21 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
         }
     }
 
-    private void OnEnable()
-    {
-        if (_actionGate != null)
-            _actionGate.ReleaseRequested += HandleGateRelease;
-    }
-
     private void OnDisable()
     {
-        if (_actionGate != null)
-            _actionGate.ReleaseRequested -= HandleGateRelease;
-
         CancelLoad();
     }
 
-    void HandleGateRelease(PlayerAction action)
+    /// <inheritdoc />
+    public void InterruptByGate()
     {
-        if (action == PlayerAction.Loading)
-            CancelLoad();
+        CancelLoad();
     }
 
     private void OnValidate()
     {
         if (_loadPerAction < 1)
             _loadPerAction = 1;
-
-        if (_magazineSource != null && !(_magazineSource is IScaleMagazine))
-        {
-            Debug.LogWarning($"[ScaleLoader] '{_magazineSource.name}' does not implement IScaleMagazine.", this);
-            _magazineSource = null;
-        }
     }
 
     /// <summary>PlayerInput의 Reload(R) 이벤트에 연결한다.</summary>
@@ -201,9 +195,35 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
         int unloaded = magazine.UnloadAll(out ScaleData unloadedScale);
         ReturnUnloaded(previousItem, unloadedScale, unloaded);
 
-        _selectedScale = nextScale;
-        _selectedItem = item;
+        SetSelection(item, false);
         return true;
+    }
+
+    /// <summary>선택한 아이템을 바꾼다. 기본 비늘은 null. 값이 같으면 알리지 않고, 복원은 항상 알린다.</summary>
+    void SetSelection(ScaleItemData item, bool forceRaise)
+    {
+        ScaleData scale = item != null ? item.Scale : _defaultScale;
+        bool changed = item != _selectedItem || scale != _selectedScale;
+        _selectedItem = item;
+        _selectedScale = scale;
+        if (!changed && !forceRaise)
+            return;
+
+        Action handlers = SelectionChanged;
+        if (handlers == null)
+            return;
+
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action)handler).Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
+        }
     }
 
     /// <summary>그 아이템이 지금 선택된 파밍 비늘이면 true. null이면 기본 비늘이 선택된 상태인지.</summary>
@@ -250,13 +270,13 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
 
         if (magazine.GrownCount < 1)
         {
-            Debug.Log("장전할 칸이 없습니다.");
+            GameNotice.Show(NoticeText.NoGrownSlot);
             return false;
         }
 
         if (IsFarmed && CountSelectedItem() < 1)
         {
-            Debug.Log($"{scale.DisplayName} 비늘이 없습니다. G로 바꾸세요");
+            GameNotice.Show(NoticeText.SelectedScaleMissing);
             return false;
         }
 
@@ -265,19 +285,16 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
             return false;
 
         int cost = scale.LoadManaCost * count;
-        if (_playerMana != null && !_playerMana.CanAfford(cost))
+        if (!PlayerCostRules.IsFree && _playerMana != null && !_playerMana.CanAfford(cost))
         {
-            Debug.Log($"마나가 부족해 장전할 수 없습니다. ({_playerMana.CurrentMana}/{cost})");
+            GameNotice.Show(NoticeText.NotEnoughMana);
             return false;
         }
 
-        if (!TryEnterLoading())
+        if (!TryEnterLoading(scale.LoadTime))
             return false;
 
         _isLoading = true;
-        if (CastingBarController.Instance != null)
-            CastingBarController.Instance.Show(this);
-
         _loadRoutine = StartCoroutine(LoadRoutine(scale, _selectedItem, Time.time));
         return true;
     }
@@ -290,8 +307,6 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
 
         EndLoadState();
         ExitLoading();
-        if (CastingBarController.Instance != null)
-            CastingBarController.Instance.Cancel(this);
     }
 
     /// <inheritdoc />
@@ -329,17 +344,13 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
 
         _selectionRestored = true;
         ScaleItemData item = null;
-        ScaleData scale = _defaultScale;
         int count = save.loadedScaleCount < 0 ? 0 : save.loadedScaleCount;
 
         if (save.loadedScaleItemNum >= 0)
         {
             ItemData found = database != null ? database.Get(save.loadedScaleItemNum) : null;
             if (found is ScaleItemData scaleItem && scaleItem.Scale != null)
-            {
                 item = scaleItem;
-                scale = scaleItem.Scale;
-            }
             else
             {
                 Debug.LogWarning($"[ScaleLoader] itemNum {save.loadedScaleItemNum} 비늘을 찾지 못했습니다. 장전 칸은 복원하지 않습니다.", this);
@@ -347,9 +358,8 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
             }
         }
 
-        _selectedItem = item;
-        _selectedScale = scale;
-        if (count < 1 || scale == null)
+        SetSelection(item, true);
+        if (count < 1 || _selectedScale == null)
             return;
 
         IScaleMagazine magazine = Magazine;
@@ -359,7 +369,7 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
             return;
         }
 
-        int loaded = magazine.LoadGrown(scale, count);
+        int loaded = magazine.LoadGrown(_selectedScale, count);
         if (loaded < count)
         {
             if (item != null)
@@ -411,11 +421,9 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
         float loadTime = scale.LoadTime;
         float completeAtTime = startTime + loadTime;
 
-        // Always wait at least one frame so a 0-second load still completes outside StartCoroutine.
+        // 0초 장전도 StartCoroutine 밖에서 끝나게 최소 한 프레임은 기다린다.
         do
         {
-            if (CastingBarController.Instance != null && loadTime > 0f)
-                CastingBarController.Instance.UpdateFill(this, Time.time - startTime, loadTime);
             yield return null;
         }
         while (Time.time < completeAtTime);
@@ -425,8 +433,8 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
     }
 
     /// <summary>
-    /// 끝나는 순간 칸 수, 인벤토리, 마나를 다시 계산한다.
-    /// 파밍 비늘을 먼저 빼고, 그다음 마나를 낸 뒤 장전한다. 마나는 환불하지 않는다.
+    /// 끝나는 순간 칸 수와 마나를 다시 계산한다. 마나를 낸 뒤 <see cref="LoadCore"/>가 비늘을 넣고 칸을 채운다.
+    /// 마나는 환불하지 않는다.
     /// </summary>
     private void CompleteLoad(ScaleData scale, ScaleItemData item)
     {
@@ -449,43 +457,127 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
             int count = PlannedCount(magazine, scale, includeMana: true);
             if (count < 1)
             {
-                Debug.Log("장전할 칸이 없거나 마나가 부족해 장전하지 못했습니다.");
-                return;
-            }
-
-            if (item != null && !TryTakeItem(item, count))
-            {
-                Debug.Log($"{scale.DisplayName} 비늘이 없습니다. G로 바꾸세요");
+                string reason = magazine.GrownCount < 1 ? NoticeText.NoGrownSlot
+                    : IsFarmed && CountSelectedItem() < 1 ? NoticeText.SelectedScaleMissing
+                    : NoticeText.NotEnoughMana;
+                GameNotice.Show(reason);
                 return;
             }
 
             int cost = scale.LoadManaCost * count;
-            if (_playerMana != null && !_playerMana.TrySpendMana(cost))
+            if (!PlayerCostRules.IsFree && _playerMana != null && !_playerMana.TrySpendMana(cost))
             {
-                // 마나를 내지 못했으므로 미리 뺀 비늘은 되돌린다. 낸 마나를 환불하는 경로는 아니다.
-                if (item != null)
-                    ReturnToInventoryOrDrop(item, count);
-
-                Debug.Log("마나가 부족해 장전하지 못했습니다.");
+                GameNotice.Show(NoticeText.NotEnoughMana);
                 return;
             }
 
-            int loaded = magazine.LoadGrown(scale, count);
-            if (loaded < count)
+            int loaded = LoadCore(scale, item, count);
+            if (loaded < 0)
             {
-                if (item != null)
-                    ReturnToInventoryOrDrop(item, count - loaded);
-
-                Debug.LogWarning($"[ScaleLoader] {count}칸 비용을 냈지만 {loaded}칸만 장전됐습니다.", this);
+                GameNotice.Show(NoticeText.SelectedScaleMissing);
+                return;
             }
+
+            if (loaded < count)
+                Debug.LogWarning($"[ScaleLoader] {count}칸 비용을 냈지만 {loaded}칸만 장전됐습니다.", this);
         }
         finally
         {
             EndLoadState();
             ExitLoading();
-            if (CastingBarController.Instance != null)
-                CastingBarController.Instance.Hide(this);
         }
+    }
+
+    /// <inheritdoc />
+    public bool CanLoadNow(int maxCount, out string reason)
+    {
+        if (_playerStats != null && _playerStats.IsDead)
+        {
+            reason = NoticeText.CannotUseNow;
+            return false;
+        }
+
+        if (maxCount < 1 || _selectedScale == null)
+        {
+            reason = NoticeText.CannotUseNow;
+            return false;
+        }
+
+        IScaleMagazine magazine = Magazine;
+        if (magazine == null)
+        {
+            reason = NoticeText.CannotUseNow;
+            return false;
+        }
+
+        if (magazine.CurrentScale != null && magazine.CurrentScale != _selectedScale)
+        {
+            reason = NoticeText.CannotChangeScale;
+            return false;
+        }
+
+        if (magazine.GrownCount < 1)
+        {
+            reason = NoticeText.NoGrownSlot;
+            return false;
+        }
+
+        if (IsFarmed && CountSelectedItem() < 1)
+        {
+            reason = NoticeText.SelectedScaleMissing;
+            return false;
+        }
+
+        reason = null;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public int LoadNow(int maxCount)
+    {
+        if (_isLoading)
+            return 0;
+
+        string reason;
+        if (!CanLoadNow(maxCount, out reason))
+            return 0;
+
+        IScaleMagazine magazine = Magazine;
+        if (magazine == null)
+            return 0;
+
+        int count = Mathf.Min(maxCount, magazine.GrownCount);
+        if (IsFarmed)
+            count = Mathf.Min(count, CountSelectedItem());
+
+        if (count < 1)
+            return 0;
+
+        int loaded = LoadCore(_selectedScale, _selectedItem, count);
+        return loaded < 0 ? 0 : loaded;
+    }
+
+    /// <summary>
+    /// 파밍 비늘을 인벤토리에서 빼고 탄창에 넣는다. 다 못 채우면 뺀 것 중 남은 것을 되돌린다.
+    /// 빼기에 실패하면 -1. 마나는 내지 않는다.
+    /// </summary>
+    int LoadCore(ScaleData scale, ScaleItemData item, int count)
+    {
+        if (scale == null || count < 1)
+            return 0;
+
+        IScaleMagazine magazine = Magazine;
+        if (magazine == null)
+            return 0;
+
+        if (item != null && !TryTakeItem(item, count))
+            return -1;
+
+        int loaded = magazine.LoadGrown(scale, count);
+        if (item != null && loaded < count)
+            ReturnToInventoryOrDrop(item, count - loaded);
+
+        return loaded;
     }
 
     private bool IsFarmed => _selectedItem != null;
@@ -500,7 +592,7 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
         if (IsFarmed)
             count = Mathf.Min(count, CountSelectedItem());
 
-        if (includeMana && _playerMana != null && scale.LoadManaCost > 0)
+        if (includeMana && !PlayerCostRules.IsFree && _playerMana != null && scale.LoadManaCost > 0)
             count = Mathf.Min(count, Mathf.FloorToInt(_playerMana.CurrentMana / scale.LoadManaCost));
 
         return count < 0 ? 0 : count;
@@ -530,21 +622,16 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
         return inventory.TryRemove(item, count);
     }
 
-    /// <summary>해제한 파밍 비늘을 선택 아이템으로 되돌린다. 기본 비늘은 버리고 마나는 환불하지 않는다.</summary>
+    /// <summary>해제한 비늘을 되돌린다. 직전 선택이 없으면 기본 비늘이라 버리고, 있으면 그 아이템으로 돌려준다.</summary>
     private void ReturnUnloaded(ScaleItemData selectedItem, ScaleData unloadedScale, int count)
     {
-        // 기본 비늘은 _defaultScale 하나로 판별한다. 티어로 판별하면 0티어 파밍 비늘이 사라진다.
-        if (count < 1 || unloadedScale == null || unloadedScale == _defaultScale)
+        if (count < 1)
             return;
 
-        if (selectedItem != null && selectedItem.Scale == unloadedScale)
-        {
-            ReturnToInventoryOrDrop(selectedItem, count);
+        if (selectedItem == null)
             return;
-        }
 
-        string itemName = selectedItem != null ? selectedItem.name : "없음";
-        Debug.LogWarning($"[ScaleLoader] 해제한 '{unloadedScale.name}'과 선택 아이템 '{itemName}'이 다릅니다. 인벤토리로 되돌리지 못했습니다.", this);
+        ReturnToInventoryOrDrop(selectedItem, count);
     }
 
     private void ReturnToInventoryOrDrop(ScaleItemData item, int count)
@@ -565,18 +652,18 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
         Debug.LogWarning($"[ScaleLoader] '{item.name}' {remain}개를 인벤토리에도 바닥에도 두지 못했습니다.", this);
     }
 
-    private bool TryEnterLoading()
+    private bool TryEnterLoading(float duration)
     {
         if (_actionGate == null)
             return true;
 
-        return _actionGate.TryEnter(PlayerAction.Loading);
+        return _actionGate.TryEnter(PlayerAction.Loading, this, duration);
     }
 
     private void ExitLoading()
     {
         if (_actionGate != null)
-            _actionGate.Exit(PlayerAction.Loading);
+            _actionGate.Exit(PlayerAction.Loading, this);
     }
 
     private void EndLoadState()
@@ -589,22 +676,4 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty
         _loadRoutine = null;
     }
 
-    private void ResolveMagazine()
-    {
-        if (_magazineSource != null)
-        {
-            _magazine = _magazineSource as IScaleMagazine;
-            if (_magazine == null)
-                Debug.LogWarning($"[ScaleLoader] '{_magazineSource.name}' does not implement IScaleMagazine.", this);
-        }
-
-        if (_magazine == null && _scaleSpender != null)
-            _magazine = _scaleSpender.Magazine;
-
-        if (_magazine == null)
-            _magazine = GetComponentInParent<IScaleMagazine>();
-
-        if (_magazine == null)
-            Debug.LogWarning("[ScaleLoader] No IScaleMagazine resolved; loading cannot start.", this);
-    }
 }

@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: ScaleBase
   m_EditorClassIdentifier: Assembly-CSharp::ScaleItemData
   itemNum: 11
-  icon: {fileID: 21300000, guid: e7d29a79bc7fae248887c8a08a160303, type: 3}
+  icon: {fileID: 21300000, guid: 6592b916f86b19e428db6f6847c7b6dd, type: 3}
   rarity: 0
   maxStack: 30
   displayName: "\uBD80\uC11C\uC838\uAC00\uB294 \uBE44\uB298"
   description: "\uAC00\uC7A5 \uAE30\uBCF8\uC801\uC778 \uBE44\uB298"
   worldPrefab: {fileID: 756550975484237309, guid: 012e084d78544c94f95ca9b312f4d3e1, type: 3}
-  scale: {fileID: 11400000, guid: 208346f9518d16848aafab97a3d4b2ea, type: 2}
+  scale: {fileID: 11400000, guid: cc35fa35a68382e429d9d3ba5f220045, type: 2}

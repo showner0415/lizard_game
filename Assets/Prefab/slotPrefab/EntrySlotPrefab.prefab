@@ -65,7 +65,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -96,8 +96,8 @@ MonoBehaviour:
   _icon: {fileID: 1631029027356523669}
   _name: {fileID: 4935868237642780045}
   _count: {fileID: 3016877006979036586}
-  _button: {fileID: 0}
   _selectedMark: {fileID: 5897287026839073719}
+  _hoverMark: {fileID: 0}
   _background: {fileID: 6608058148727753539}
   _selectedColor: {r: 1, g: 0.86, b: 0.45, a: 1}
 --- !u!114 &1767124891679327814
@@ -179,7 +179,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0, b: 0, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
