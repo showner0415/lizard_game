@@ -7,12 +7,8 @@ using UnityEngine;
 /// It has no timers: <see cref="ScaleMagazine"/> drives every state change (regrowth, loading, reservations).
 /// 컴포넌트 enabled는 동작에 영향이 없다. 칸 하나만 끄는 기능은 지원하지 않는다.
 /// <para>
-/// <b>The slot's GameObject is never deactivated.</b> Empty only flips <c>enabled</c> on the cached
-/// renderers/colliders, and every other state restores each one to the enabled value it had in <c>Awake</c>.
-/// </para>
-/// <para>
-/// <b>Look:</b> Empty is hidden, Grown shows the default material, Loaded/Reserved additionally tint with
-/// <see cref="ScaleData.SlotColor"/> through a <see cref="MaterialPropertyBlock"/> (no material instances).
+/// <b>The slot's GameObject is never deactivated.</b> Renderers stay enabled only while the slot is
+/// Loaded or Reserved, and only if that renderer was enabled when it was cached. Empty and Grown hide them.
 /// </para>
 /// State model: a guarded transition table (<see cref="IsTransitionAllowed"/>) rather than a bare enum,
 /// so illegal transitions are rejected with a warning. Every slot starts Grown.
@@ -20,17 +16,14 @@ using UnityEngine;
 public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
 {
     [Header("Presentation (toggled instead of SetActive)")]
-    [Tooltip("Renderers hidden while the slot is empty and tinted while it holds a scale.")]
+    [Tooltip("장전됐거나 예약된 동안에만 켠다. 비어 있거나 자란 상태에서는 숨긴다.")]
     [SerializeField] private Renderer[] _visualRenderers;
 
-    [Tooltip("Colliders disabled while the slot is empty.")]
-    [SerializeField] private Collider[] _colliders;
-
-    [Tooltip("If both arrays above are empty, collect all child renderers/colliders automatically.")]
+    [Tooltip("렌더러를 비워 두면 자식 렌더러를 자동으로 모은다.")]
     [SerializeField] private bool _autoCollectIfEmpty = true;
 
-    [Tooltip("Shader color property tinted with ScaleData.slotColor. URP Lit/Unlit use _BaseColor; Built-in uses _Color.")]
-    [SerializeField] private string _colorPropertyName = "_BaseColor";
+    [SerializeField, Min(0), Tooltip("소모 순서. 작을수록 먼저 쓰이고 먼저 자란다.")]
+    private int _order;
 
     private ScaleSlotState _state = ScaleSlotState.Grown;
     private ScaleData _scale;
@@ -39,10 +32,9 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
 
     private Renderer[] _cachedRenderers = Array.Empty<Renderer>();
     private bool[] _rendererOriginalEnabled = Array.Empty<bool>();
-    private Collider[] _cachedColliders = Array.Empty<Collider>();
-    private bool[] _colliderOriginalEnabled = Array.Empty<bool>();
-    private MaterialPropertyBlock _propertyBlock;
-    private int _colorPropertyId;
+
+    /// <summary>소모 순서. 작을수록 먼저 쓰이고 먼저 자란다.</summary>
+    public int Order => _order;
 
     /// <inheritdoc />
     public event Action<IScaleSlot, ScaleSlotState, ScaleSlotState> StateChanged;
@@ -58,16 +50,14 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
 
     private void Awake()
     {
-        if (string.IsNullOrEmpty(_colorPropertyName))
-        {
-            Debug.LogWarning($"[ScaleSlot] '{name}' has no color property name; using _BaseColor.", this);
-            _colorPropertyName = "_BaseColor";
-        }
-
-        _colorPropertyId = Shader.PropertyToID(_colorPropertyName);
-        _propertyBlock = new MaterialPropertyBlock();
         CachePresentation();
         ApplyPresentation();
+
+        if (_order < 0)
+        {
+            Debug.LogWarning($"[ScaleSlot] '{name}' Order {_order}는 0으로 맞춥니다.", this);
+            _order = 0;
+        }
     }
 
     /// <inheritdoc />
@@ -206,15 +196,13 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
 
     private void CachePresentation()
     {
-        if (_autoCollectIfEmpty && IsNullOrEmpty(_visualRenderers) && IsNullOrEmpty(_colliders))
+        if (_autoCollectIfEmpty && IsNullOrEmpty(_visualRenderers))
         {
-            Debug.LogWarning($"[ScaleSlot] '{name}' has no renderer/collider references assigned; collecting from children.", this);
+            Debug.LogWarning($"[ScaleSlot] '{name}' has no renderer references assigned; collecting from children.", this);
             _visualRenderers = GetComponentsInChildren<Renderer>(true);
-            _colliders = GetComponentsInChildren<Collider>(true);
         }
 
-        var seen = new HashSet<UnityEngine.Object>();
-
+        var seen = new HashSet<Renderer>();
         var renderers = new List<Renderer>();
         var rendererStates = new List<bool>();
         if (_visualRenderers != null)
@@ -227,53 +215,37 @@ public sealed class ScaleSlot : MonoBehaviour, IScaleSlot
             }
         }
 
-        var colliders = new List<Collider>();
-        var colliderStates = new List<bool>();
-        if (_colliders != null)
-        {
-            foreach (Collider c in _colliders)
-            {
-                if (c == null || !seen.Add(c)) continue;
-                colliders.Add(c);
-                colliderStates.Add(c.enabled);
-            }
-        }
-
         _cachedRenderers = renderers.ToArray();
         _rendererOriginalEnabled = rendererStates.ToArray();
-        _cachedColliders = colliders.ToArray();
-        _colliderOriginalEnabled = colliderStates.ToArray();
 
-        if (_cachedRenderers.Length == 0 && _cachedColliders.Length == 0)
+        if (_cachedRenderers.Length == 0)
             Debug.LogWarning($"[ScaleSlot] '{name}' has nothing to toggle; state changes will have no visible effect.", this);
     }
 
+    private static bool IsVisible(ScaleSlotState state) => state == ScaleSlotState.Loaded || state == ScaleSlotState.Reserved;
+
     private void ApplyPresentation()
     {
-        bool visible = _state != ScaleSlotState.Empty;
-        bool tinted = _scale != null && (_state == ScaleSlotState.Loaded || _state == ScaleSlotState.Reserved);
-
-        // Restore each component to its own cached value; never blanket-enable.
+        bool visible = IsVisible(_state);
         for (int i = 0; i < _cachedRenderers.Length; i++)
         {
             Renderer r = _cachedRenderers[i];
             if (r == null) continue;
-
             r.enabled = visible && _rendererOriginalEnabled[i];
-            if (tinted)
-            {
-                _propertyBlock.Clear();
-                _propertyBlock.SetColor(_colorPropertyId, _scale.SlotColor);
-                r.SetPropertyBlock(_propertyBlock);
-            }
-            else
-            {
-                r.SetPropertyBlock(null);
-            }
         }
+    }
 
-        for (int i = 0; i < _cachedColliders.Length; i++)
-            if (_cachedColliders[i] != null) _cachedColliders[i].enabled = visible && _colliderOriginalEnabled[i];
+    [ContextMenu("Log Presentation")]
+    void LogPresentation()
+    {
+        Debug.Log($"[ScaleSlot] '{name}' state={_state} visible={IsVisible(_state)} renderers={_cachedRenderers.Length}", this);
+        for (int i = 0; i < _cachedRenderers.Length; i++)
+        {
+            Renderer r = _cachedRenderers[i];
+            string rendererName = r != null ? r.name : "null";
+            bool enabled = r != null && r.enabled;
+            Debug.Log($"[ScaleSlot] '{name}' [{i}] {rendererName} enabled={enabled} original={_rendererOriginalEnabled[i]}", this);
+        }
     }
 
     private static bool IsNullOrEmpty<T>(T[] array) => array == null || array.Length == 0;

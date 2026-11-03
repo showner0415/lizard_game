@@ -14,6 +14,9 @@ public sealed class MagazineHudView : MonoBehaviour
     [SerializeField, Tooltip("들고 있는 수.")]
     TMP_Text _count;
 
+    [SerializeField, Tooltip("장전 가능한 자란 칸 수. 0이면 숨긴다.")]
+    TMP_Text _grown;
+
     [SerializeField, Tooltip("비늘이 있을 때 수량 색.")]
     Color _normalColor = Color.white;
 
@@ -25,8 +28,12 @@ public sealed class MagazineHudView : MonoBehaviour
 
     void Awake()
     {
+        if (_grown == null)
+            Debug.LogWarning("[MagazineHudView] 자란 칸 수 텍스트(_grown)가 연결되지 않았습니다.", this);
+
         SetRaycast(_icon, false);
         SetRaycast(_count, false);
+        SetRaycast(_grown, false);
     }
 
     void OnEnable()
@@ -77,6 +84,20 @@ public sealed class MagazineHudView : MonoBehaviour
     void Refresh()
     {
         IScaleMagazine magazine = _boundMagazine;
+        int grown = magazine != null ? magazine.GrownCount : 0;
+        if (_grown != null)
+        {
+            if (grown > 0)
+            {
+                _grown.gameObject.SetActive(true);
+                _grown.SetText("+{0}", grown);
+            }
+            else
+            {
+                _grown.gameObject.SetActive(false);
+            }
+        }
+
         int held = magazine != null ? magazine.HeldCount() : 0;
         if (held > 0 && magazine.CurrentScale != null)
         {

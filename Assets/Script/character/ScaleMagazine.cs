@@ -8,8 +8,8 @@ using UnityEngine;
 /// This is the only class allowed to know concrete <see cref="ScaleSlot"/> instances; consumers use <see cref="IScaleMagazine"/>.
 /// It knows nothing about players, inventory or mana, so enemies can share it.
 /// <para>
-/// <b>Order:</b> discovery order (Hierarchy order). Regrowth, loading and reservation all pick the front-most
-/// matching slot.
+/// <b>Order:</b> <see cref="ScaleSlot.Order"/> ascending. Ties keep discovery order. Regrowth, loading and
+/// reservation all pick the front-most matching slot in that sorted list.
 /// </para>
 /// <para>
 /// <b>Regrowth:</b> one timer for the whole magazine. While any slot is Empty, every
@@ -41,7 +41,6 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     [SerializeField, Min(MinRegenTimePerSlot)] private float _regenTimePerSlot = DefaultRegenTimePerSlot;
 
     private readonly List<ScaleSlot> _slots = new List<ScaleSlot>();
-    private readonly HashSet<ScaleSlot> _slotSet = new HashSet<ScaleSlot>();
     private readonly List<ScaleReservation> _activeReservations = new List<ScaleReservation>();
 
     private bool _isRegenerating;
@@ -156,41 +155,6 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     private void OnValidate()
     {
         if (_regenTimePerSlot < MinRegenTimePerSlot) _regenTimePerSlot = MinRegenTimePerSlot;
-    }
-
-    /// <summary>Adds a runtime-created slot at the back. Returns false for null or already-registered slots.</summary>
-    public bool RegisterScale(ScaleSlot slot)
-    {
-        if (slot == null)
-        {
-            Debug.LogWarning("[ScaleMagazine] RegisterScale called with null.", this);
-            return false;
-        }
-
-        if (!_slotSet.Add(slot))
-            return false;
-
-        _slots.Add(slot);
-        slot.StateChanged += HandleScaleStateChanged;
-
-        RaiseSlotsChanged();
-        EnsureRegenerating();
-        return true;
-    }
-
-    /// <summary>Removes a slot. Returns false if it was not registered.</summary>
-    public bool UnregisterScale(ScaleSlot slot)
-    {
-        if (slot == null || !_slotSet.Remove(slot))
-            return false;
-
-        _slots.Remove(slot);
-        slot.StateChanged -= HandleScaleStateChanged;
-        if (IndexOfFirst(ScaleSlotState.Empty) < 0)
-            StopRegeneration();
-
-        RaiseSlotsChanged();
-        return true;
     }
 
     /// <inheritdoc />
@@ -485,18 +449,63 @@ public sealed class ScaleMagazine : MonoBehaviour, IScaleMagazine, IHomeRestorab
     private void DiscoverScales()
     {
         ScaleSlot[] found = GetComponentsInChildren<ScaleSlot>(true);
+        var owned = new List<(ScaleSlot slot, int index)>(found.Length);
         for (int i = 0; i < found.Length; i++)
         {
             ScaleSlot slot = found[i];
             if (slot == null || !IsOwnedByThisMagazine(slot))
                 continue;
 
-            if (_slotSet.Add(slot))
-                _slots.Add(slot);
+            owned.Add((slot, owned.Count));
         }
+
+        owned.Sort((a, b) =>
+        {
+            int byOrder = a.slot.Order.CompareTo(b.slot.Order);
+            return byOrder != 0 ? byOrder : a.index.CompareTo(b.index);
+        });
+
+        for (int i = 0; i < owned.Count; i++)
+            _slots.Add(owned[i].slot);
+
+        WarnDuplicateOrders();
 
         if (_slots.Count == 0)
             Debug.LogWarning("[ScaleMagazine] No scale slots discovered; spends requiring a scale will not start.", this);
+    }
+
+    /// <summary>같은 Order는 동작은 유지하고, 칸 이름을 한 번만 경고한다.</summary>
+    private void WarnDuplicateOrders()
+    {
+        var names = new System.Text.StringBuilder();
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            ScaleSlot slot = _slots[i];
+            if (slot == null || !OrderIsDuplicated(slot.Order))
+                continue;
+
+            if (names.Length > 0)
+                names.Append(", ");
+
+            names.Append(slot.name);
+        }
+
+        if (names.Length == 0)
+            return;
+
+        Debug.LogWarning($"[ScaleMagazine] 같은 Order를 가진 칸이 있습니다: {names}. 발견 순서로 나눕니다.", this);
+    }
+
+    private bool OrderIsDuplicated(int order)
+    {
+        int matches = 0;
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            if (_slots[i] != null && _slots[i].Order == order)
+                matches++;
+        }
+
+        return matches > 1;
     }
 
     /// <summary>Walks up from the slot; a different ScaleMagazine on the way means another character owns it.</summary>

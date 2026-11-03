@@ -13,9 +13,11 @@ MonoBehaviour:
   m_Name: thornShard
   m_EditorClassIdentifier: Assembly-CSharp::ProjectileMagicData
   isDarkMagic: 0
+  castMode: 0
   castingTime: 0.8
   manaCost: 5
-  tailCost: 1
+  scaleCost: 1
+  selfDamageScale: 0
   projectilePrefab: {fileID: 9130907451964624026, guid: 7c1e4a9b2d6f48e0a1b3c5d7e9f10426, type: 3}
   damage: 10
   speed: 16
@@ -26,3 +28,4 @@ MonoBehaviour:
   spreadAngle: 30
   maxRange: 6
   pierceCount: 0
+  explosionRadius: 0

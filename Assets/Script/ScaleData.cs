@@ -22,9 +22,6 @@ public class ScaleData : ScriptableObject
     [Tooltip("장전 1회에 걸리는 시간(초, scaled time). 0이면 다음 프레임에 끝난다.")]
     [SerializeField, Min(0f)] private float loadTime = 1f;
 
-    [Tooltip("이 비늘이 장전된 칸의 색.")]
-    [SerializeField] private Color slotColor = Color.white;
-
     /// <summary>화면에 보여 줄 이름. 비어 있으면 에셋 이름.</summary>
     public string DisplayName => string.IsNullOrEmpty(displayName) ? name : displayName;
 
@@ -39,9 +36,6 @@ public class ScaleData : ScriptableObject
 
     /// <summary>장전 1회에 걸리는 시간(초). 0 이상.</summary>
     public float LoadTime => float.IsNaN(loadTime) || float.IsInfinity(loadTime) || loadTime < 0f ? 0f : loadTime;
-
-    /// <summary>장전된 칸의 색.</summary>
-    public Color SlotColor => slotColor;
 
     private void OnValidate()
     {

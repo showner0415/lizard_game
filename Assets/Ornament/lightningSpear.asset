@@ -16,7 +16,7 @@ MonoBehaviour:
   castMode: 0
   castingTime: 1.2
   manaCost: 8
-  tailCost: 1
+  scaleCost: 2
   selfDamageScale: 0
   projectilePrefab: {fileID: 9130907451964624026, guid: 3b8d5f1a6c2e47d9b0a4e7c8f1d29530, type: 3}
   damage: 20

@@ -12,6 +12,7 @@ using UnityEngine.InputSystem;
 /// 선택은 비늘 데이터가 아니라 아이템으로 구분한다. 같은 데이터라도 아이템이 다르면 장전된 칸을 비우고 바꾼다.
 /// 직전 선택이 없으면 기본 비늘이라 해제해도 버리고, 선택이 있으면 그 아이템으로 되돌린다. 넘치면 바닥에 떨어진다.
 /// 장전 중이거나 예약된 칸이 있으면 선택을 바꾸지 않는다.
+/// 마나가 모자라 멈춘 홀드는 다음에 칸이 바뀔 때까지 재개되지 않는다. 마나 회복은 SlotsChanged를 일으키지 않는다.
 /// </para>
 /// </summary>
 public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty, IInstantScaleLoader, IGateInterruptible
@@ -47,6 +48,8 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
     private ScaleItemData _selectedItem;
     private bool _selectionRestored;
     private bool _warnedMissingSpender;
+    private bool _reloadHeld;
+    private IScaleMagazine _heldMagazine;
 
     /// <summary>지금 장전 중이면 true.</summary>
     public bool IsLoading => _isLoading;
@@ -130,12 +133,15 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
 
     private void OnDisable()
     {
+        _reloadHeld = false;
+        UnsubscribeWhileHeld();
         CancelLoad();
     }
 
     /// <inheritdoc />
     public void InterruptByGate()
     {
+        _reloadHeld = false;
         CancelLoad();
     }
 
@@ -148,10 +154,19 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
     /// <summary>PlayerInput의 Reload(R) 이벤트에 연결한다.</summary>
     public void OnReload(InputAction.CallbackContext ctx)
     {
-        if (!ctx.performed)
+        if (ctx.performed)
+        {
+            _reloadHeld = true;
+            SubscribeWhileHeld();
+            TryBeginLoad(fromHold: false);
             return;
+        }
 
-        TryBeginLoad();
+        if (ctx.canceled)
+        {
+            _reloadHeld = false;
+            UnsubscribeWhileHeld();
+        }
     }
 
     /// <summary>
@@ -236,7 +251,7 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
     }
 
     /// <summary>조건이 맞으면 장전을 시작한다. 이 시점에는 마나와 인벤토리를 확인만 하고 빼지 않는다.</summary>
-    public bool TryBeginLoad()
+    public bool TryBeginLoad(bool fromHold = false)
     {
         // PlayerInput은 꺼진 컴포넌트의 이벤트도 호출한다.
         if (!isActiveAndEnabled)
@@ -264,19 +279,22 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
 
         if (magazine.CurrentScale != null && magazine.CurrentScale != scale)
         {
-            Debug.LogWarning($"[ScaleLoader] 탄창의 비늘 '{magazine.CurrentScale.name}'과 선택 '{scale.name}'이 다릅니다.", this);
+            if (!fromHold)
+                Debug.LogWarning($"[ScaleLoader] 탄창의 비늘 '{magazine.CurrentScale.name}'과 선택 '{scale.name}'이 다릅니다.", this);
             return false;
         }
 
         if (magazine.GrownCount < 1)
         {
-            GameNotice.Show(NoticeText.NoGrownSlot);
+            if (!fromHold)
+                GameNotice.Show(NoticeText.NoGrownSlot);
             return false;
         }
 
         if (IsFarmed && CountSelectedItem() < 1)
         {
-            GameNotice.Show(NoticeText.SelectedScaleMissing);
+            if (!fromHold)
+                GameNotice.Show(NoticeText.SelectedScaleMissing);
             return false;
         }
 
@@ -287,7 +305,8 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
         int cost = scale.LoadManaCost * count;
         if (!PlayerCostRules.IsFree && _playerMana != null && !_playerMana.CanAfford(cost))
         {
-            GameNotice.Show(NoticeText.NotEnoughMana);
+            if (!fromHold)
+                GameNotice.Show(NoticeText.NotEnoughMana);
             return false;
         }
 
@@ -302,6 +321,8 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
     /// <summary>장전 중이면 비용 없이 취소한다. 장전 중이 아니면 아무것도 하지 않는다.</summary>
     public void CancelLoad()
     {
+        _reloadHeld = false;
+        UnsubscribeWhileHeld();
         if (!_isLoading)
             return;
 
@@ -312,12 +333,14 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
     /// <inheritdoc />
     public void RestoreForHome()
     {
+        _reloadHeld = false;
         CancelLoad();
     }
 
     /// <inheritdoc />
     public void ApplyDeathPenalty()
     {
+        _reloadHeld = false;
         CancelLoad();
     }
 
@@ -439,6 +462,8 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
     private void CompleteLoad(ScaleData scale, ScaleItemData item)
     {
         // 칸을 채우기 전에는 잠금을 유지한다. 바를 숨기는 동안 선택이 바뀌면 뺀 비늘과 장전 대상이 어긋난다.
+        int loaded = 0;
+        bool succeeded = false;
         try
         {
             if (_playerStats != null && _playerStats.IsDead)
@@ -471,7 +496,7 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
                 return;
             }
 
-            int loaded = LoadCore(scale, item, count);
+            loaded = LoadCore(scale, item, count);
             if (loaded < 0)
             {
                 GameNotice.Show(NoticeText.SelectedScaleMissing);
@@ -480,12 +505,50 @@ public sealed class ScaleLoader : MonoBehaviour, IHomeRestorable, IDeathPenalty,
 
             if (loaded < count)
                 Debug.LogWarning($"[ScaleLoader] {count}칸 비용을 냈지만 {loaded}칸만 장전됐습니다.", this);
+
+            succeeded = loaded > 0;
         }
         finally
         {
             EndLoadState();
             ExitLoading();
         }
+
+        if (_reloadHeld && succeeded)
+            TryBeginLoad(fromHold: true);
+    }
+
+    /// <summary>R을 누르고 있는 동안 칸이 자라면 다음 장전을 이어 간다.</summary>
+    private void HandleSlotsChangedWhileHeld()
+    {
+        if (!_reloadHeld || _isLoading)
+            return;
+
+        IScaleMagazine magazine = _heldMagazine;
+        if (magazine == null || magazine.GrownCount < 1)
+            return;
+
+        TryBeginLoad(fromHold: true);
+    }
+
+    private void SubscribeWhileHeld()
+    {
+        IScaleMagazine magazine = Magazine;
+        if (magazine == null || ReferenceEquals(magazine, _heldMagazine))
+            return;
+
+        UnsubscribeWhileHeld();
+        _heldMagazine = magazine;
+        _heldMagazine.SlotsChanged += HandleSlotsChangedWhileHeld;
+    }
+
+    private void UnsubscribeWhileHeld()
+    {
+        if (_heldMagazine == null)
+            return;
+
+        _heldMagazine.SlotsChanged -= HandleSlotsChangedWhileHeld;
+        _heldMagazine = null;
     }
 
     /// <inheritdoc />
